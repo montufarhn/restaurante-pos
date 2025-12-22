@@ -1,0 +1,117 @@
+<!-- public/admin.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración del Restaurante - Sazon 1804</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Configuración del Restaurante</h1>
+        </header>
+        <main>
+            <form id="form-config" class="admin-panel">
+                <h2>Datos de Facturación (Honduras)</h2>
+                
+                <div class="form-group">
+                    <label for="nombre">Nombre del Restaurante:</label>
+                    <input type="text" id="nombre" name="nombre" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="rtn">RTN:</label>
+                    <input type="text" id="rtn" name="rtn" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="cai">CAI:</label>
+                    <input type="text" id="cai" name="cai" required>
+                </div>
+
+                <div class="form-group-inline">
+                    <div class="form-group">
+                        <label for="rangoInicio">Rango de Facturación (Inicio):</label>
+                        <input type="text" id="rangoInicio" name="rangoInicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rangoFin">Rango de Facturación (Fin):</label>
+                        <input type="text" id="rangoFin" name="rangoFin" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="logo">Logo del Restaurante:</label>
+                    <input type="file" id="logo" name="logo" accept="image/png, image/jpeg">
+                    <div id="logo-preview-container">
+                        <p>Vista Previa:</p>
+                        <img id="logo-preview" src="" alt="Vista previa del logo" style="max-width: 150px; display: none;">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-success">Guardar Configuración</button>
+            </form>
+        </main>
+    </div>
+
+    <script>
+        const formConfig = document.getElementById('form-config');
+        const logoInput = document.getElementById('logo');
+        const logoPreview = document.getElementById('logo-preview');
+
+        // Cargar la configuración actual al abrir la página
+        async function cargarConfiguracion() {
+            const response = await fetch('/api/config');
+            const config = await response.json();
+
+            document.getElementById('nombre').value = config.nombre || '';
+            document.getElementById('rtn').value = config.rtn || '';
+            document.getElementById('cai').value = config.cai || '';
+            document.getElementById('rangoInicio').value = config.rangoInicio || '';
+            document.getElementById('rangoFin').value = config.rangoFin || '';
+            
+            if (config.logo) {
+                logoPreview.src = config.logo;
+                logoPreview.style.display = 'block';
+            }
+        }
+
+        // Manejar el envío del formulario para guardar la configuración
+        formConfig.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Usamos FormData para poder enviar el archivo del logo
+            const formData = new FormData(formConfig);
+
+            // Añadimos la ruta del logo actual por si no se sube uno nuevo
+            formData.append('logo_actual', logoPreview.src);
+
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                body: formData 
+            });
+
+            if (response.ok) {
+                alert('¡Configuración guardada con éxito!');
+                cargarConfiguracion(); // Recargar para mostrar los cambios
+            } else {
+                alert('Error al guardar la configuración.');
+            }
+        });
+
+        // Mostrar vista previa del logo al seleccionarlo
+        logoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                logoPreview.src = URL.createObjectURL(file);
+                logoPreview.style.display = 'block';
+            }
+        });
+
+        // Carga inicial
+        cargarConfiguracion();
+    </script>
+</body>
+</html>

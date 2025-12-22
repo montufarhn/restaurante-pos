@@ -1,0 +1,231 @@
+<!-- public/reportes.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Ventas - Sazon 1804</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Reporte de Ventas - Sazon 1804</h1>
+        </header>
+        <main>
+            <div class="report-filters admin-panel">
+                <h2>Seleccionar Rango de Fechas</h2>
+                <form id="form-reporte">
+                    <div class="form-group">
+                        <label for="fecha-inicio">Fecha de Inicio:</label>
+                        <input type="date" id="fecha-inicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha-fin">Fecha de Fin:</label>
+                        <input type="date" id="fecha-fin" required>
+                    </div>
+                    <button type="submit" class="btn-success">Generar Reporte</button>
+                </form>
+            </div>
+
+            <div id="reporte-resultados" class="hidden">
+                <div class="report-summary">
+                    <div class="summary-card">
+                        <h3>Venta Total</h3>
+                        <p id="total-ventas">L. 0.00</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Platillos Vendidos</h3>
+                        <p id="total-platillos">0</p>
+                    </div>
+                    <div class="summary-card">
+                        <h3>Bebidas Vendidas</h3>
+                        <p id="total-bebidas">0</p>
+                    </div>
+                </div>
+
+                <div class="top-items-panel admin-panel">
+                    <h2>Top 10 Productos Más Vendidos</h2>
+                    <ol id="lista-top-items">
+                        <!-- Los items más vendidos se cargarán aquí -->
+                    </ol>
+                </div>
+            </div>
+
+            <div class="admin-panel">
+                <h2>Historial de Ventas</h2>
+                <div class="report-actions">
+                    <button id="exportar-btn" class="btn-secondary">Exportar a Excel (CSV)</button>
+                    <button id="reset-ventas-btn" class="btn-danger">Resetear Historial</button>
+                </div>
+                <div class="table-container">
+                    <table id="tabla-historial">
+                        <thead>
+                            <tr>
+                                <th>Factura N°</th>
+                                <th>Fecha</th>
+                                <th>Subtotal</th>
+                                <th>ISV</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="body-historial">
+                            <!-- El historial de ventas se cargará aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const formReporte = document.getElementById('form-reporte');
+        const resultadosContainer = document.getElementById('reporte-resultados');
+        const bodyHistorial = document.getElementById('body-historial');
+        const exportarBtn = document.getElementById('exportar-btn');
+        const resetVentasBtn = document.getElementById('reset-ventas-btn');
+        let historialData = []; // Para almacenar los datos y usarlos en la exportación
+
+        formReporte.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fechaInicio = document.getElementById('fecha-inicio').value;
+            const fechaFin = document.getElementById('fecha-fin').value;
+
+            if (!fechaInicio || !fechaFin) {
+                alert('Por favor, selecciona ambas fechas.');
+                return;
+            }
+
+            // Construir la URL con los parámetros de fecha
+            const url = `/api/reportes?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                alert('Error al generar el reporte.');
+                return;
+            }
+
+            const reporte = await response.json();
+            mostrarResultados(reporte);
+        });
+
+        function mostrarResultados(reporte) {
+            // Mostrar los totales
+            document.getElementById('total-ventas').textContent = `L. ${reporte.ventaTotal.toFixed(2)}`;
+            document.getElementById('total-platillos').textContent = reporte.totalPlatillos;
+            document.getElementById('total-bebidas').textContent = reporte.totalBebidas;
+
+            // Mostrar el top 10
+            const listaTopItems = document.getElementById('lista-top-items');
+            listaTopItems.innerHTML = '';
+
+            if (reporte.topItems.length === 0) {
+                listaTopItems.innerHTML = '<li>No hay datos para el rango seleccionado.</li>';
+            } else {
+                reporte.topItems.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span>${item.nombre}</span>
+                        <span>Vendido: <strong>${item.cantidad}</strong></span>
+                    `;
+                    listaTopItems.appendChild(li);
+                });
+            }
+
+            // Hacer visible el contenedor de resultados
+            resultadosContainer.classList.remove('hidden');
+        }
+
+        // Cargar el historial completo de ventas al iniciar
+        async function cargarHistorial() {
+            const response = await fetch('/api/reportes/historial');
+            if (!response.ok) {
+                bodyHistorial.innerHTML = '<tr><td colspan="5">Error al cargar el historial.</td></tr>';
+                return;
+            }
+
+            historialData = await response.json(); // Guardar los datos en la variable global
+            if (historialData.length === 0) {
+                bodyHistorial.innerHTML = '<tr><td colspan="5">Aún no se han realizado ventas.</td></tr>';
+            } else {
+                historialData.forEach(venta => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${venta.id.toString().padStart(5, '0')}</td>
+                        <td>${new Date(venta.fecha).toLocaleString('es-HN')}</td>
+                        <td>L. ${venta.subtotal.toFixed(2)}</td>
+                        <td>L. ${venta.isv.toFixed(2)}</td>
+                        <td>L. ${venta.total.toFixed(2)}</td>
+                    `;
+                    bodyHistorial.appendChild(tr);
+                });
+            }
+        }
+
+        function exportarACSV(data) {
+            if (data.length === 0) {
+                alert('No hay datos para exportar.');
+                return;
+            }
+
+            const headers = ['Factura N°', 'Fecha', 'Subtotal (L.)', 'ISV (L.)', 'Total (L.)'];
+            const csvRows = [headers.join(',')]; // Fila de encabezado
+
+            // Crear una fila por cada venta
+            data.forEach(row => {
+                const values = [
+                    `"${row.id.toString().padStart(5, '0')}"`,
+                    `"${new Date(row.fecha).toLocaleString('es-HN')}"`,
+                    row.subtotal.toFixed(2),
+                    row.isv.toFixed(2),
+                    row.total.toFixed(2)
+                ];
+                csvRows.push(values.join(','));
+            });
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' }); // \uFEFF para compatibilidad con Excel
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `historial_ventas_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Carga inicial del historial
+        cargarHistorial();
+
+        // Evento para exportar
+        exportarBtn.addEventListener('click', () => exportarACSV(historialData));
+
+        // Evento para resetear las ventas
+        resetVentasBtn.addEventListener('click', async () => {
+            const confirmacion1 = confirm('¡ADVERTENCIA! Esta acción borrará TODO el historial de facturas de forma permanente. ¿Estás seguro?');
+            if (!confirmacion1) {
+                return;
+            }
+
+            const confirmacion2 = confirm('Esta es tu última oportunidad. ¿Realmente quieres borrar todas las ventas y reiniciar el contador de facturas a 1?');
+            if (!confirmacion2) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/ventas/reset', { method: 'POST' });
+                if (response.ok) {
+                    alert('El historial de ventas ha sido reseteado con éxito.');
+                    location.reload(); // Recargar la página para ver los cambios
+                } else {
+                    throw new Error('Falló la solicitud de reseteo.');
+                }
+            } catch (error) {
+                alert('Error al intentar resetear el historial. Revisa la consola del servidor.');
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+</html>

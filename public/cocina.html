@@ -1,0 +1,85 @@
+<!-- public/cocina.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pantalla de Cocina - Sazon 1804</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pantalla de Cocina - Sazon 1804</h1>
+        </header>
+        <main id="ordenes-pendientes" class="kds-layout">
+            <!-- Las órdenes nuevas aparecerán aquí en tiempo real -->
+        </main>
+    </div>
+
+    <!-- Importar la librería de Socket.IO para el cliente -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const ordenesContainer = document.getElementById('ordenes-pendientes');
+
+        // Cargar las órdenes pendientes al iniciar la página
+        async function cargarOrdenesPendientes() {
+            const response = await fetch('/api/ordenes-pendientes');
+            if (response.ok) {
+                const ordenesPendientes = await response.json();
+                ordenesPendientes.forEach(orden => renderizarOrden(orden));
+            } else {
+                console.error('Error al cargar órdenes pendientes');
+            }
+        }
+
+        // Escuchar el evento 'nueva_orden' que envía el servidor
+        socket.on('nueva_orden', (orden) => {
+            console.log('Nueva orden recibida:', orden);
+            renderizarOrden(orden);
+        });
+
+        // Escuchar cuando una orden se actualiza (ej: marcada como lista)
+        socket.on('actualizar_estado_orden', ({ id, estado }) => {
+            const ordenCard = document.getElementById(`orden-${id}`);
+            if (ordenCard && estado === 'Lista') {
+                ordenCard.classList.add('lista');
+                ordenCard.querySelector('h3').textContent += ' - ¡LISTA!';
+                // Opcional: removerla después de un tiempo
+                setTimeout(() => ordenCard.remove(), 5000);
+            }
+        });
+
+        function renderizarOrden(orden) {
+            const ordenCard = document.createElement('div');
+            ordenCard.className = 'orden-card';
+            ordenCard.id = `orden-${orden.id}`;
+
+            let itemsHtml = '<ul>';
+            // Agrupar items para contar cantidades
+            orden.items.forEach(item => {
+                itemsHtml += `<li><strong>${item.cantidad}x</strong> ${item.nombre}</li>`;
+            });
+            itemsHtml += '</ul>';
+
+            ordenCard.innerHTML = `
+                <h3>Orden #${orden.id}</h3>
+                ${itemsHtml}
+                <button class="btn-lista">Marcar como Lista</button>
+            `;
+
+            ordenesContainer.prepend(ordenCard); // Añadir al principio
+
+            // Añadir evento al botón para marcar como lista
+            ordenCard.querySelector('.btn-lista').addEventListener('click', () => {
+                // Enviar evento al servidor para notificar que está lista
+                socket.emit('orden_lista', orden.id);
+            });
+        }
+
+        // Carga inicial
+        cargarOrdenesPendientes();
+    </script>
+</body>
+</html>

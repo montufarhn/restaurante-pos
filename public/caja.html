@@ -1,0 +1,379 @@
+<!-- public/caja.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Punto de Venta (POS) - Sazon 1804</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Punto de Venta - Sazon 1804</h1>
+            <button id="manage-menu-btn" class="btn-secondary">Administrar Menú</button>
+        </header>
+        <main class="pos-layout">
+            <div class="menu-panel">
+                <h2>Menú</h2>
+                <div id="menu-items"></div>
+            </div>
+            <div class="orden-panel">
+                <h2>Orden Actual</h2>
+                <ul id="orden-items">
+                    <!-- Los items de la orden aparecerán aquí -->
+                </ul>
+                <div class="orden-summary">
+                    <p>Subtotal: <span id="orden-subtotal">L. 0.00</span></p>
+                    <p>ISV (15%): <span id="orden-isv">L. 0.00</span></p>
+                    <div class="orden-total">
+                        <strong>Total: <span id="orden-total">L. 0.00</span></strong>
+                    </div>
+                </div>
+                <div id="pago-panel" class="pago-panel hidden">
+                    <h3>Calcular Cambio</h3>
+                    <div class="form-group">
+                        <label for="monto-pagado">Cliente paga con (L.):</label>
+                        <input type="number" id="monto-pagado" step="0.01" min="0">
+                    </div>
+                    <button id="calcular-cambio-btn" class="btn-success">Calcular</button>
+                    <div id="resultado-cambio" class="resultado-cambio hidden">
+                        <h4>Cambio a entregar: <span id="cambio-a-dar">L. 0.00</span></h4>
+                    </div>
+                </div>
+                <div class="pos-actions" style="margin-top: 15px;">
+                    <button id="enviar-orden-btn">Enviar a Cocina</button>
+                    <button id="imprimir-factura-btn" class="btn-secondary hidden">Imprimir Factura</button>
+                    <button id="nueva-orden-btn" class="btn-success hidden">Nueva Orden</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal de Administración -->
+    <div id="admin-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <div class="admin-layout">
+                <div class="admin-panel">
+                    <h2 id="form-title">Añadir Nuevo Item</h2>
+                    <form id="form-item">
+                        <input type="hidden" id="item-id">
+                        <div class="form-group">
+                            <label for="nombre">Nombre:</label>
+                            <input type="text" id="nombre" name="nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="precio">Precio (L.):</label>
+                            <input type="number" id="precio" name="precio" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="categoria">Categoría:</label>
+                            <select id="categoria" name="categoria" required>
+                                <option value="Platillo">Platillo</option>
+                                <option value="Bebida">Bebida</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-checkbox">
+                            <input type="checkbox" id="impuesto_incluido" name="impuesto_incluido" checked>
+                            <label for="impuesto_incluido">Precio incluye ISV (15%)</label>
+                        </div>
+                        <button type="submit" class="btn-success">Guardar Item</button>
+                        <button type="button" id="cancel-edit-btn" class="btn-secondary hidden">Cancelar Edición</button>
+                    </form>
+                </div>
+                <div class="admin-panel">
+                    <h2>Menú Actual</h2>
+                    <ul id="lista-menu-admin"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Importar la librería de Socket.IO para el cliente -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const menuItemsContainer = document.getElementById('menu-items');
+        const ordenItemsList = document.getElementById('orden-items');
+        const ordenSubtotalSpan = document.getElementById('orden-subtotal');
+        const ordenIsvSpan = document.getElementById('orden-isv');
+        const ordenTotalSpan = document.getElementById('orden-total');
+        const enviarOrdenBtn = document.getElementById('enviar-orden-btn');
+        const imprimirFacturaBtn = document.getElementById('imprimir-factura-btn');
+        const nuevaOrdenBtn = document.getElementById('nueva-orden-btn');
+        const pagoPanel = document.getElementById('pago-panel');
+        const calcularCambioBtn = document.getElementById('calcular-cambio-btn');
+        const resultadoCambio = document.getElementById('resultado-cambio');
+
+        // Elementos del Modal de Admin
+        const adminModal = document.getElementById('admin-modal');
+        const manageMenuBtn = document.getElementById('manage-menu-btn');
+        const closeBtn = document.querySelector('.close-button');
+        const formItem = document.getElementById('form-item');
+        const listaMenuAdmin = document.getElementById('lista-menu-admin');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+
+        let ordenActual = [];
+        let menu = [];
+        let totalDeLaOrden = 0;
+        let ultimaOrdenId = null;
+
+        // Conectar al servidor de sockets
+        const socket = io();
+
+        // Escuchar el evento 'menu_actualizado' y recargar el menú
+        socket.on('menu_actualizado', () => {
+            console.log('El menú ha sido actualizado. Recargando...');
+            cargarMenu();
+        });
+
+        // Cargar el menú desde el servidor
+        async function cargarMenu() {
+            const response = await fetch('/api/menu');
+            menu = await response.json();
+            renderizarMenu();
+        }
+
+        // Mostrar el menú en la pantalla
+        function renderizarMenu() {
+            menuItemsContainer.innerHTML = '';
+            menu.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'menu-item';
+                itemDiv.innerHTML = `
+                    <span>${item.nombre}</span>
+                    <span>L. ${item.precio.toFixed(2)}</span>
+                `;
+                itemDiv.onclick = () => agregarAOrden(item);
+                menuItemsContainer.appendChild(itemDiv);
+            });
+        }
+
+        // Agregar un item a la orden actual
+        function agregarAOrden(item) {
+            ordenActual.push(item);
+            renderizarOrden();
+        }
+
+        // Mostrar la orden actual en la pantalla
+        function renderizarOrden() {
+            ordenItemsList.innerHTML = '';
+            let subtotalGeneral = 0;
+            let isvGeneral = 0;
+
+            ordenActual.forEach((item, index) => {
+                let itemSubtotal, itemIsv, itemTotal;
+
+                if (item.impuesto_incluido) {
+                    itemSubtotal = item.precio / 1.15;
+                    itemIsv = item.precio - itemSubtotal;
+                    itemTotal = item.precio;
+                } else {
+                    itemSubtotal = item.precio;
+                    itemIsv = item.precio * 0.15;
+                    itemTotal = itemSubtotal + itemIsv;
+                }
+
+                subtotalGeneral += itemSubtotal;
+                isvGeneral += itemIsv;
+
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="item-details">
+                        <span>${item.nombre}</span>
+                        <small>Sub: ${itemSubtotal.toFixed(2)} + ISV: ${itemIsv.toFixed(2)}</small>
+                    </div>
+                    <span>L. ${itemTotal.toFixed(2)}</span>
+                `;
+                ordenItemsList.appendChild(li);
+            });
+            ordenSubtotalSpan.textContent = `L. ${subtotalGeneral.toFixed(2)}`;
+            ordenIsvSpan.textContent = `L. ${isvGeneral.toFixed(2)}`;
+            totalDeLaOrden = subtotalGeneral + isvGeneral;
+            ordenTotalSpan.textContent = `L. ${totalDeLaOrden.toFixed(2)}`;
+        }
+
+        // Enviar la orden al servidor
+        async function enviarOrden() {
+            if (ordenActual.length === 0) {
+                alert('La orden está vacía.');
+                return;
+            }
+
+            const response = await fetch('/api/ordenes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: ordenActual })
+            });
+
+            if (!response.ok) {
+                alert('Error al enviar la orden.');
+                return;
+            }
+
+            const ordenCreada = await response.json();
+            ultimaOrdenId = ordenCreada.id;
+
+            // Actualizar UI para el siguiente paso
+            document.getElementById('menu-items').style.pointerEvents = 'none'; // Deshabilitar clics en el menú
+            document.getElementById('menu-items').style.opacity = '0.5';
+            enviarOrdenBtn.classList.add('hidden');
+            pagoPanel.classList.remove('hidden');
+            document.getElementById('monto-pagado').focus();
+            alert(`Orden #${ultimaOrdenId} enviada a cocina.`);
+        }
+
+        // Calcular el cambio
+        function calcularCambio() {
+            const montoPagadoInput = document.getElementById('monto-pagado');
+            const montoPagado = parseFloat(montoPagadoInput.value);
+
+            if (isNaN(montoPagado) || montoPagado < totalDeLaOrden) {
+                alert('El monto pagado debe ser mayor o igual al total de la orden.');
+                montoPagadoInput.focus();
+                return;
+            }
+
+            const cambio = montoPagado - totalDeLaOrden;
+            document.getElementById('cambio-a-dar').textContent = `L. ${cambio.toFixed(2)}`;
+
+            // Mostrar resultado y botones finales
+            resultadoCambio.classList.remove('hidden');
+            imprimirFacturaBtn.classList.remove('hidden');
+            nuevaOrdenBtn.classList.remove('hidden');
+            calcularCambioBtn.classList.add('hidden');
+            montoPagadoInput.disabled = true;
+        }
+
+        calcularCambioBtn.addEventListener('click', calcularCambio);
+        enviarOrdenBtn.addEventListener('click', enviarOrden);
+
+        imprimirFacturaBtn.addEventListener('click', () => {
+            if (ultimaOrdenId) {
+                window.open(`/factura.html?ordenId=${ultimaOrdenId}`, '_blank');
+            }
+        });
+
+        nuevaOrdenBtn.addEventListener('click', () => {
+            location.reload(); // La forma más simple de reiniciar el estado de la caja
+        });
+
+        // Cargar todo al iniciar
+        cargarMenu();
+
+        // --- LÓGICA DE ADMINISTRACIÓN DEL MENÚ ---
+
+        // Abrir/Cerrar modal
+        manageMenuBtn.onclick = () => {
+            adminModal.style.display = 'block';
+            cargarMenuAdmin();
+        };
+        closeBtn.onclick = () => {
+            adminModal.style.display = 'none';
+            resetForm();
+        };
+        window.onclick = (event) => {
+            if (event.target == adminModal) {
+                adminModal.style.display = 'none';
+                resetForm();
+            }
+        };
+
+        // Cargar menú en el panel de admin
+        async function cargarMenuAdmin() {
+            // Reutilizamos la variable global 'menu' que ya se carga con cargarMenu()
+            
+            listaMenuAdmin.innerHTML = '';
+            menu.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'admin-menu-item';
+                li.innerHTML = `
+                    <span>${item.nombre} (${item.categoria}) - L. ${item.precio.toFixed(2)}</span>
+                    <div>
+                        <button class="btn-edit" data-id="${item.id}">Editar</button>
+                        <button class="btn-danger" data-id="${item.id}">Borrar</button>
+                    </div>
+                `;
+                listaMenuAdmin.appendChild(li);
+            });
+        }
+
+        // Resetear el formulario a modo "Añadir"
+        function resetForm() {
+            formItem.reset();
+            document.getElementById('item-id').value = '';
+            document.getElementById('form-title').textContent = 'Añadir Nuevo Item';
+            cancelEditBtn.classList.add('hidden');
+        }
+
+        // Manejar envío del formulario (Añadir o Editar)
+        formItem.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('item-id').value;
+            const nombre = document.getElementById('nombre').value;
+            const precio = parseFloat(document.getElementById('precio').value);
+            const categoria = document.getElementById('categoria').value;
+            const impuesto_incluido = document.getElementById('impuesto_incluido').checked;
+
+            const url = id ? `/api/menu/${id}` : '/api/menu';
+            const method = id ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, precio, categoria, impuesto_incluido })
+            });
+
+            if (response.ok) {
+                resetForm();
+                // No es necesario llamar a cargarMenuAdmin() aquí, 
+                // el evento 'menu_actualizado' de socket.io se encargará de refrescar todo.
+            } else {
+                alert('Error al guardar el item.');
+            }
+        });
+
+        // Manejar clics en la lista de menú (Editar/Borrar)
+        listaMenuAdmin.addEventListener('click', async (e) => {
+            const target = e.target;
+            const id = target.dataset.id;
+
+            // Botón BORRAR
+            if (target.classList.contains('btn-danger')) {
+                if (confirm('¿Estás seguro de que quieres borrar este item?')) {
+                    const response = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+                    if (!response.ok) {
+                        alert('Error al borrar el item.');
+                    }
+                }
+            }
+
+            // Botón EDITAR
+            if (target.classList.contains('btn-edit')) {
+                const itemToEdit = menu.find(item => item.id == id);
+                if (itemToEdit) {
+                    document.getElementById('item-id').value = itemToEdit.id;
+                    document.getElementById('nombre').value = itemToEdit.nombre;
+                    document.getElementById('precio').value = itemToEdit.precio;
+                    document.getElementById('categoria').value = itemToEdit.categoria;
+                    document.getElementById('impuesto_incluido').checked = !!itemToEdit.impuesto_incluido;
+                    document.getElementById('form-title').textContent = 'Editando Item';
+                    cancelEditBtn.classList.remove('hidden');
+                }
+            }
+        });
+
+        // Botón para cancelar la edición
+        cancelEditBtn.addEventListener('click', resetForm);
+
+        // Sobrescribir la función de recarga para que también actualice el panel de admin si está abierto
+        socket.on('menu_actualizado', async () => {
+            console.log('El menú ha sido actualizado. Recargando...');
+            await cargarMenu(); // Recarga el menú principal
+            if (adminModal.style.display === 'block') {
+                cargarMenuAdmin(); // Si el modal está abierto, también lo recarga
+            }
+        });
+    </script>
+</body>
+</html>
