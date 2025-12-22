@@ -1,0 +1,17 @@
+# Dependencies
+/node_modules
+
+# Data and Config
+# Es una buena práctica no subir las bases de datos ni la configuración al repositorio.
+# El servidor los creará al iniciar.
+*.db
+config.json
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS-generated files
+.DS_Store
+Thumbs.db
