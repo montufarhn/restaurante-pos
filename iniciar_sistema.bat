@@ -1,6 +1,8 @@
 @echo off
-title Sazon 1804 - Servidor
-echo Iniciando el sistema Sazon 1804...
+title Servidor
+echo Iniciando el sistema...
 echo Por favor, no cierres esta ventana.
 cd /d "%~dp0"
+echo Verificando actualizaciones de base de datos...
+node actualizar_db.js
 npm start

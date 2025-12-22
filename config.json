@@ -1,9 +1,8 @@
 {
-  "nombre": "Sazon 1804",
-  "rtn": "08011991258668",
-  "cai": "5464685464664666",
+  "nombre": "Restaurante",
+  "rtn": "0000000000000000",
+  "cai": "000000000000000000000000",
   "rangoInicio": "01/01/2025",
   "rangoFin": "01/01/2026",
-  "logo_actual": "blob:http://localhost:3000/33e93a13-1bf5-4ea7-964a-1e80453c93f9",
-  "logo": "/uploads/logo.png"
+  "logo_actual": "http://localhost:3000/uploads/logo.png"
 }

@@ -14,6 +14,26 @@ const io = new Server(server);
 
 const PORT = 3000;
 
+// Asegurar que existe la carpeta de uploads
+const uploadDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configuración de almacenamiento para Multer
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'public/uploads/')
+    },
+    filename: function (req, file, cb) {
+        // Guardar con fecha para evitar nombres duplicados
+        cb(null, Date.now() + path.extname(file.originalname)) 
+    }
+});
+
+const upload = multer({ storage: storage });
+
+
 // --- Configuración del Restaurante (Persistente) ---
 const CONFIG_PATH = path.join(__dirname, 'config.json');
 let restaurantConfig = {};
@@ -38,17 +58,6 @@ function loadConfig() {
     }
 }
 loadConfig(); // Cargar la configuración al iniciar
-
-// --- Configuración para subir archivos (Logo) ---
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'public/uploads/'); // Carpeta donde se guardarán los logos
-    },
-    filename: function (req, file, cb) {
-        cb(null, 'logo' + path.extname(file.originalname)); // Nombre del archivo: logo.png, logo.jpg, etc.
-    }
-});
-const upload = multer({ storage: storage });
 
 // --- Conexión a la Base de Datos SQLite ---
 const db = new sqlite3.Database('./restaurante.db', (err) => {
@@ -146,17 +155,21 @@ app.post('/api/config', upload.single('logo'), (req, res) => {
 });
 
 // Endpoint para AÑADIR un nuevo item al menú
-app.post('/api/menu', (req, res) => {
-    const { nombre, precio, categoria, impuesto_incluido } = req.body;
-    const sql = "INSERT INTO menu (nombre, precio, categoria, impuesto_incluido) VALUES (?, ?, ?, ?)";
-    db.run(sql, [nombre, precio, categoria, impuesto_incluido ? 1 : 0], function(err) {
+app.post('/api/menu', upload.single('imagen'), (req, res) => {
+    const { nombre, precio, categoria } = req.body;
+    const impuesto_incluido = req.body.impuesto_incluido === 'true' ? 1 : 0;
+    
+    const imagen = req.file ? '/uploads/' + req.file.filename : null;
+
+    const sql = "INSERT INTO menu (nombre, precio, categoria, impuesto_incluido, imagen) VALUES (?, ?, ?, ?, ?)";
+    db.run(sql, [nombre, precio, categoria, impuesto_incluido, imagen], function(err) {
         if (err) {
             res.status(400).json({ "error": err.message });
             return;
         }
         io.emit('menu_actualizado');
         console.log(`Nuevo item añadido al menú: ${nombre}`);
-        res.status(201).json({ id: this.lastID, ...req.body });
+        res.status(201).json({ id: this.lastID, nombre, precio, categoria, impuesto_incluido, imagen });
     });
 });
 
@@ -179,11 +192,18 @@ app.delete('/api/menu/:id', (req, res) => {
 });
 
 // Endpoint para EDITAR un item del menú
-app.put('/api/menu/:id', (req, res) => {
+app.put('/api/menu/:id', upload.single('imagen'), (req, res) => {
     const id = parseInt(req.params.id);
-    const { nombre, precio, categoria, impuesto_incluido } = req.body;
-    const sql = "UPDATE menu SET nombre = ?, precio = ?, categoria = ?, impuesto_incluido = ? WHERE id = ?";
-    db.run(sql, [nombre, precio, categoria, impuesto_incluido ? 1 : 0, id], function(err) {
+    const { nombre, precio, categoria } = req.body;
+    const impuesto_incluido = req.body.impuesto_incluido === 'true' ? 1 : 0;
+
+    let imagen = req.body.imagen_actual || null;
+    if (req.file) {
+        imagen = '/uploads/' + req.file.filename;
+    }
+
+    const sql = "UPDATE menu SET nombre = ?, precio = ?, categoria = ?, impuesto_incluido = ?, imagen = ? WHERE id = ?";
+    db.run(sql, [nombre, precio, categoria, impuesto_incluido, imagen, id], function(err) {
         if (err) {
             res.status(400).json({ "error": err.message });
             return;
@@ -193,7 +213,7 @@ app.put('/api/menu/:id', (req, res) => {
         }
         io.emit('menu_actualizado');
         console.log(`Item con id ${id} actualizado.`);
-        res.status(200).json({ id, ...req.body });
+        res.status(200).json({ id, nombre, precio, categoria, impuesto_incluido, imagen });
     });
 });
 

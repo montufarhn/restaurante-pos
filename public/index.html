@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sazon 1804 - Sistema POS</title>
+    <title>Sistema POS</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Sazon 1804 - Sistema POS</h1>
+        <header style="justify-content: center; gap: 20px;">
+            <img id="restaurante-logo" src="" alt="Logo" style="max-height: 80px; display: none; border-radius: 8px;">
+            <h1 id="titulo-principal">Sistema POS</h1>
         </header>
         <main class="dashboard-layout">
             <a href="/caja.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
@@ -23,7 +24,7 @@
             </a>
             <a href="/admin.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
                 <h3>Administración</h3>
-                <p>Gestionar menú y configuraciones</p>
+                <p>Configuraciones De Facturación</p>
             </a>
             <a href="/reportes.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
                 <h3>Reportes</h3>
@@ -31,5 +32,26 @@
             </a>
         </main>
     </div>
+    <script>
+        async function cargarConfiguracion() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                if (config.nombre) {
+                    const titulo = `${config.nombre} - Sistema POS`;
+                    document.getElementById('titulo-principal').textContent = titulo;
+                    document.title = titulo;
+                }
+                if (config.logo) {
+                    const logoImg = document.getElementById('restaurante-logo');
+                    logoImg.src = config.logo;
+                    logoImg.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error al cargar la configuración:', error);
+            }
+        }
+        cargarConfiguracion();
+    </script>
 </body>
 </html>

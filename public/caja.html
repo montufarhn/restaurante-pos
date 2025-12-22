@@ -4,13 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Punto de Venta (POS) - Sazon 1804</title>
+    <title>Punto de Venta (POS)</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Punto de Venta - Sazon 1804</h1>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
+                <h1 id="titulo-principal">Punto de Venta</h1>
+            </div>
             <button id="manage-menu-btn" class="btn-secondary">Administrar Menú</button>
         </header>
         <main class="pos-layout">
@@ -74,6 +77,13 @@
                                 <option value="Bebida">Bebida</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="imagen">Imagen del Producto:</label>
+                            <input type="file" id="imagen" name="imagen" accept="image/*">
+                            <div id="imagen-preview-container" style="margin-top: 10px; display: none;">
+                                <img id="imagen-preview" src="" alt="Vista previa" style="max-height: 100px; border-radius: 5px;">
+                            </div>
+                        </div>
                         <div class="form-group form-group-checkbox">
                             <input type="checkbox" id="impuesto_incluido" name="impuesto_incluido" checked>
                             <label for="impuesto_incluido">Precio incluye ISV (15%)</label>
@@ -121,6 +131,25 @@
         // Conectar al servidor de sockets
         const socket = io();
 
+        // Cargar configuración del restaurante
+        async function cargarConfiguracion() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                if (config.nombre) {
+                    document.getElementById('titulo-principal').textContent = `Punto de Venta - ${config.nombre}`;
+                    document.title = `Punto de Venta (POS) - ${config.nombre}`;
+                }
+                if (config.logo) {
+                    const logoImg = document.getElementById('restaurante-logo');
+                    logoImg.src = config.logo;
+                    logoImg.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error al cargar la configuración:', error);
+            }
+        }
+
         // Escuchar el evento 'menu_actualizado' y recargar el menú
         socket.on('menu_actualizado', () => {
             console.log('El menú ha sido actualizado. Recargando...');
@@ -141,8 +170,9 @@
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'menu-item';
                 itemDiv.innerHTML = `
-                    <span>${item.nombre}</span>
-                    <span>L. ${item.precio.toFixed(2)}</span>
+                    ${item.imagen ? `<img src="${item.imagen}" alt="${item.nombre}">` : '<div class="no-image">Sin Imagen</div>'}
+                    <strong>${item.nombre}</strong>
+                    <span class="price">L. ${item.precio.toFixed(2)}</span>
                 `;
                 itemDiv.onclick = () => agregarAOrden(item);
                 menuItemsContainer.appendChild(itemDiv);
@@ -259,6 +289,7 @@
         });
 
         // Cargar todo al iniciar
+        cargarConfiguracion();
         cargarMenu();
 
         // --- LÓGICA DE ADMINISTRACIÓN DEL MENÚ ---
@@ -303,6 +334,8 @@
             formItem.reset();
             document.getElementById('item-id').value = '';
             document.getElementById('form-title').textContent = 'Añadir Nuevo Item';
+            document.getElementById('imagen-preview').src = '';
+            document.getElementById('imagen-preview-container').style.display = 'none';
             cancelEditBtn.classList.add('hidden');
         }
 
@@ -314,14 +347,29 @@
             const precio = parseFloat(document.getElementById('precio').value);
             const categoria = document.getElementById('categoria').value;
             const impuesto_incluido = document.getElementById('impuesto_incluido').checked;
+            const imagenInput = document.getElementById('imagen');
+            const imagenPreview = document.getElementById('imagen-preview');
 
             const url = id ? `/api/menu/${id}` : '/api/menu';
             const method = id ? 'PUT' : 'POST';
 
+            // Usamos FormData para enviar archivos
+            const formData = new FormData();
+            formData.append('nombre', nombre);
+            formData.append('precio', precio);
+            formData.append('categoria', categoria);
+            formData.append('impuesto_incluido', impuesto_incluido);
+            
+            if (imagenInput.files[0]) {
+                formData.append('imagen', imagenInput.files[0]);
+            } else if (id && imagenPreview.src) {
+                // Si estamos editando y no se subió nueva imagen, enviamos la URL actual (opcional, depende del backend)
+                formData.append('imagen_actual', imagenPreview.src);
+            }
+
             const response = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nombre, precio, categoria, impuesto_incluido })
+                body: formData // No establecemos Content-Type manualmente, fetch lo hace por nosotros con el boundary correcto
             });
 
             if (response.ok) {
@@ -329,7 +377,8 @@
                 // No es necesario llamar a cargarMenuAdmin() aquí, 
                 // el evento 'menu_actualizado' de socket.io se encargará de refrescar todo.
             } else {
-                alert('Error al guardar el item.');
+                const errorData = await response.json().catch(() => ({ message: 'El servidor no respondió con un error JSON válido.' }));
+                alert(`Error al guardar el item: ${errorData.message || response.statusText}`);
             }
         });
 
@@ -357,9 +406,26 @@
                     document.getElementById('precio').value = itemToEdit.precio;
                     document.getElementById('categoria').value = itemToEdit.categoria;
                     document.getElementById('impuesto_incluido').checked = !!itemToEdit.impuesto_incluido;
+                    
+                    if (itemToEdit.imagen) {
+                        document.getElementById('imagen-preview').src = itemToEdit.imagen;
+                        document.getElementById('imagen-preview-container').style.display = 'block';
+                    } else {
+                        document.getElementById('imagen-preview-container').style.display = 'none';
+                    }
+
                     document.getElementById('form-title').textContent = 'Editando Item';
                     cancelEditBtn.classList.remove('hidden');
                 }
+            }
+        });
+
+        // Previsualizar imagen al seleccionar archivo
+        document.getElementById('imagen').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('imagen-preview').src = URL.createObjectURL(file);
+                document.getElementById('imagen-preview-container').style.display = 'block';
             }
         });
 
