@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pantalla de Cocina - Sazon 1804</title>
+    <title>Pantalla de Cocina</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Pantalla de Cocina - Sazon 1804</h1>
+        <header style="display: flex; align-items: center; gap: 20px;">
+            <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
+            <h1 id="titulo-principal">Pantalla de Cocina</h1>
         </header>
         <main id="ordenes-pendientes" class="kds-layout">
             <!-- Las órdenes nuevas aparecerán aquí en tiempo real -->
@@ -22,6 +23,25 @@
     <script>
         const socket = io();
         const ordenesContainer = document.getElementById('ordenes-pendientes');
+
+        // Cargar configuración del restaurante
+        async function cargarConfiguracion() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                if (config.nombre) {
+                    document.getElementById('titulo-principal').textContent = `Pantalla de Cocina - ${config.nombre}`;
+                    document.title = `Pantalla de Cocina - ${config.nombre}`;
+                }
+                if (config.logo) {
+                    const logoImg = document.getElementById('restaurante-logo');
+                    logoImg.src = config.logo;
+                    logoImg.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error al cargar la configuración:', error);
+            }
+        }
 
         // Cargar las órdenes pendientes al iniciar la página
         async function cargarOrdenesPendientes() {
@@ -79,6 +99,7 @@
         }
 
         // Carga inicial
+        cargarConfiguracion();
         cargarOrdenesPendientes();
     </script>
 </body>

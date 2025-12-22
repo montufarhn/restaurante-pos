@@ -4,5 +4,5 @@
   "cai": "000000000000000000000000",
   "rangoInicio": "01/01/2025",
   "rangoFin": "01/01/2026",
-  "logo_actual": "http://localhost:3000/uploads/logo.png"
+  "logo_actual": "http://localhost:3000/admin.html"
 }

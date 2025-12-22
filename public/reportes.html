@@ -4,13 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte de Ventas - Sazon 1804</title>
+    <title>Reporte de Ventas</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Reporte de Ventas - Sazon 1804</h1>
+        <header style="display: flex; align-items: center; gap: 20px;">
+            <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
+            <h1 id="titulo-principal">Reporte de Ventas</h1>
         </header>
         <main>
             <div class="report-filters admin-panel">
@@ -85,6 +86,25 @@
         const exportarBtn = document.getElementById('exportar-btn');
         const resetVentasBtn = document.getElementById('reset-ventas-btn');
         let historialData = []; // Para almacenar los datos y usarlos en la exportación
+
+        // Cargar configuración del restaurante
+        async function cargarConfiguracion() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                if (config.nombre) {
+                    document.getElementById('titulo-principal').textContent = `Reporte de Ventas - ${config.nombre}`;
+                    document.title = `Reporte de Ventas - ${config.nombre}`;
+                }
+                if (config.logo) {
+                    const logoImg = document.getElementById('restaurante-logo');
+                    logoImg.src = config.logo;
+                    logoImg.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error al cargar la configuración:', error);
+            }
+        }
 
         formReporte.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -196,6 +216,7 @@
         }
 
         // Carga inicial del historial
+        cargarConfiguracion();
         cargarHistorial();
 
         // Evento para exportar
