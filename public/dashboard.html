@@ -79,6 +79,29 @@
             window.location.href = '/';
         });
 
+        // Guardar configuración regional
+        document.getElementById('form-settings').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nuevoIdioma = document.getElementById('idioma').value;
+            const nuevaMoneda = document.getElementById('moneda').value;
+
+            // Combinar con la configuración existente para no perder otros datos
+            const nuevaConfig = { ...currentConfig, idioma: nuevoIdioma, moneda: nuevaMoneda };
+            
+            const formData = new FormData();
+            // Reconstruir FormData para el servidor
+            Object.keys(nuevaConfig).forEach(key => {
+                // No enviar la tasa de impuesto calculada ni el logo como campo de texto
+                if (key !== 'tasaImpuesto' && key !== 'logo') {
+                    formData.append(key, nuevaConfig[key]);
+                }
+            });
+            if (nuevaConfig.logo) formData.append('logo_actual', nuevaConfig.logo);
+
+            await fetch('/api/config', { method: 'POST', body: formData });
+            location.reload();
+        });
+
         // Cargar datos de sesión y configuración
         async function inicializarDashboard() {
             const [sessionRes, configRes] = await Promise.all([fetch('/api/session'), fetch('/api/config')]);
@@ -109,8 +132,30 @@
                     </a>`;
             });
 
-            // El resto de la lógica de `cargarConfiguracion` de index.html anterior
-            // (código omitido por brevedad, es idéntico al que ya tenías para cargar logo, título, etc.)
+            // Aplicar traducciones a elementos estáticos
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+
+            // Configurar título principal y de la pestaña
+            if (currentConfig.nombre) {
+                const titulo = `${currentConfig.nombre} - ${translations[lang]['system_title']}`;
+                document.getElementById('titulo-principal').textContent = titulo;
+                document.title = titulo;
+            }
+
+            // Mostrar logo
+            if (currentConfig.logo) {
+                document.getElementById('restaurante-logo').src = currentConfig.logo;
+                document.getElementById('restaurante-logo').style.display = 'block';
+            }
+
+            // Sincronizar valores del modal de configuración
+            document.getElementById('idioma').value = currentConfig.idioma || 'es';
+            document.getElementById('moneda').value = currentConfig.moneda || 'L.';
         }
 
         inicializarDashboard();
