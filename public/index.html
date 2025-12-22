@@ -9,36 +9,35 @@
 </head>
 <body>
     <div class="container">
-        <header style="justify-content: center; gap: 20px;">
-            <img id="restaurante-logo" src="" alt="Logo" style="max-height: 80px; display: none; border-radius: 8px;">
-            <h1 id="titulo-principal">Sistema POS</h1>
-        </header>
-        <main class="dashboard-layout">
-            <a href="/caja.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
-                <h3>Caja</h3>
-                <p>Tomar y gestionar órdenes</p>
-            </a>
-            <a href="/cocina.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
-                <h3>Cocina</h3>
-                <p>Visualizar órdenes pendientes</p>
-            </a>
-            <a href="/admin.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
-                <h3>Administración</h3>
-                <p>Configuraciones De Facturación</p>
-            </a>
-            <a href="/reportes.html" class="dashboard-button" target="_blank" rel="noopener noreferrer">
-                <h3>Reportes</h3>
-                <p>Ver análisis de ventas</p>
-            </a>
+        <main class="login-container">
+            <div class="login-box">
+                <img id="restaurante-logo" src="" alt="Logo" style="max-width: 150px; margin-bottom: 20px; display: none;">
+                <h2 id="titulo-principal">Iniciar Sesión</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Usuario</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn-success" style="width: 100%;">Ingresar</button>
+                </form>
+                <p id="error-message" style="color: #e74c3c; text-align: center; margin-top: 15px;"></p>
+            </div>
         </main>
     </div>
+
+    <script src="locales.js"></script>
     <script>
         async function cargarConfiguracion() {
             try {
                 const response = await fetch('/api/config');
                 const config = await response.json();
+                
                 if (config.nombre) {
-                    const titulo = `${config.nombre} - Sistema POS`;
+                    const titulo = `${config.nombre}`;
                     document.getElementById('titulo-principal').textContent = titulo;
                     document.title = titulo;
                 }
@@ -51,6 +50,27 @@
                 console.error('Error al cargar la configuración:', error);
             }
         }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const password = e.target.password.value;
+            const errorMessage = document.getElementById('error-message');
+
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                window.location.href = '/dashboard.html';
+            } else {
+                const error = await response.json();
+                errorMessage.textContent = error.message || 'Error desconocido';
+            }
+        });
+
         cargarConfiguracion();
     </script>
 </body>

@@ -9,9 +9,12 @@
 </head>
 <body>
     <div class="container">
-        <header style="display: flex; align-items: center; gap: 20px;">
-            <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
-            <h1 id="titulo-principal">Pantalla de Cocina</h1>
+        <header style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
+                <h1 id="titulo-principal">Pantalla de Cocina</h1>
+            </div>
+            <button id="btn-logout" class="btn-danger" data-i18n="logout">Cerrar Sesión</button>
         </header>
         <main id="ordenes-pendientes" class="kds-layout">
             <!-- Las órdenes nuevas aparecerán aquí en tiempo real -->
@@ -20,18 +23,28 @@
 
     <!-- Importar la librería de Socket.IO para el cliente -->
     <script src="/socket.io/socket.io.js"></script>
+    <script src="locales.js"></script>
     <script>
         const socket = io();
         const ordenesContainer = document.getElementById('ordenes-pendientes');
+        let currentLang = 'es';
+
+        // Lógica de Logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        });
 
         // Cargar configuración del restaurante
         async function cargarConfiguracion() {
             try {
                 const response = await fetch('/api/config');
                 const config = await response.json();
+                currentLang = config.idioma || 'es';
                 if (config.nombre) {
-                    document.getElementById('titulo-principal').textContent = `Pantalla de Cocina - ${config.nombre}`;
-                    document.title = `Pantalla de Cocina - ${config.nombre}`;
+                    const titulo = `${translations[currentLang]['kitchen_title']} - ${config.nombre}`;
+                    document.getElementById('titulo-principal').textContent = titulo;
+                    document.title = titulo;
                 }
                 if (config.logo) {
                     const logoImg = document.getElementById('restaurante-logo');
@@ -65,7 +78,7 @@
             const ordenCard = document.getElementById(`orden-${id}`);
             if (ordenCard && estado === 'Lista') {
                 ordenCard.classList.add('lista');
-                ordenCard.querySelector('h3').textContent += ' - ¡LISTA!';
+                ordenCard.querySelector('h3').textContent += ` - ${translations[currentLang]['ready']}`;
                 // Opcional: removerla después de un tiempo
                 setTimeout(() => ordenCard.remove(), 5000);
             }
@@ -84,9 +97,9 @@
             itemsHtml += '</ul>';
 
             ordenCard.innerHTML = `
-                <h3>Orden #${orden.id}</h3>
+                <h3>${translations[currentLang]['label_order_num']}${orden.id}</h3>
                 ${itemsHtml}
-                <button class="btn-lista">Marcar como Lista</button>
+                <button class="btn-lista">${translations[currentLang]['mark_ready']}</button>
             `;
 
             ordenesContainer.prepend(ordenCard); // Añadir al principio
@@ -99,8 +112,7 @@
         }
 
         // Carga inicial
-        cargarConfiguracion();
-        cargarOrdenesPendientes();
+        cargarConfiguracion().then(cargarOrdenesPendientes);
     </script>
 </body>
 </html>

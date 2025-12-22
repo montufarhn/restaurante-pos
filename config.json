@@ -1,8 +1,11 @@
 {
-  "nombre": "Restaurante",
+  "nombre": "Montu",
   "rtn": "0000000000000000",
   "cai": "000000000000000000000000",
   "rangoInicio": "01/01/2025",
   "rangoFin": "01/01/2026",
-  "logo_actual": "http://localhost:3000/admin.html"
+  "idioma": "es",
+  "moneda": "L.",
+  "logo_actual": "blob:http://localhost:3000/39821281-5552-428b-81a0-cc999b50d06e",
+  "logo": "/uploads/1766430272869.png"
 }

@@ -10,14 +10,15 @@
 <body>
     <div class="container">
         <header>
-            <h1>Configuración del Restaurante</h1>
+            <h1 data-i18n="config_title">Configuración del Restaurante</h1>
+            <button id="btn-logout" class="btn-danger" data-i18n="logout">Cerrar Sesión</button>
         </header>
         <main>
             <form id="form-config" class="admin-panel">
-                <h2>Datos de Facturación (Honduras)</h2>
+                <h2 data-i18n="desc_admin">Datos de Facturación</h2>
                 
                 <div class="form-group">
-                    <label for="nombre">Nombre del Restaurante:</label>
+                    <label for="nombre" data-i18n="rest_name">Nombre del Restaurante:</label>
                     <input type="text" id="nombre" name="nombre" required>
                 </div>
 
@@ -33,49 +34,124 @@
 
                 <div class="form-group-inline">
                     <div class="form-group">
-                        <label for="rangoInicio">Rango de Facturación (Inicio):</label>
+                        <label for="rangoInicio" data-i18n="billing_range_start">Rango de Facturación (Inicio):</label>
                         <input type="text" id="rangoInicio" name="rangoInicio" required>
                     </div>
                     <div class="form-group">
-                        <label for="rangoFin">Rango de Facturación (Fin):</label>
+                        <label for="rangoFin" data-i18n="billing_range_end">Rango de Facturación (Fin):</label>
                         <input type="text" id="rangoFin" name="rangoFin" required>
                     </div>
                 </div>
 
+                <div class="form-group-inline">
+                    <div class="form-group">
+                        <label for="idioma" data-i18n="language">Idioma:</label>
+                        <select id="idioma" name="idioma">
+                            <option value="en">English</option>
+                            <option value="es">Español</option>
+                            <option value="fr">Français</option>
+                            <option value="ja">日本語</option>
+                            <option value="pt">Português</option>
+                            <option value="zh">中文</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="moneda" data-i18n="currency">Moneda:</label>
+                        <select id="moneda" name="moneda">
+                            <option value="BZ$">Belize Dollar (BZ$)</option>
+                            <option value="€">Euro (€)</option>
+                            <option value="L.">Lempira (L.)</option>
+                            <option value="£">Pound Sterling (£)</option>
+                            <option value="Q">Quetzal (Q)</option>
+                            <option value="$">US Dollar ($)</option>
+                            <option value="CN¥">人民币 (¥)</option>
+                            <option value="¥">日本円 (¥)</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label for="logo">Logo del Restaurante:</label>
+                    <label for="logo" data-i18n="image">Logo del Restaurante:</label>
                     <input type="file" id="logo" name="logo" accept="image/png, image/jpeg">
                     <div id="logo-preview-container">
-                        <p>Vista Previa:</p>
+                        <p data-i18n="preview">Vista Previa:</p>
                         <img id="logo-preview" src="" alt="Vista previa del logo" style="max-width: 150px; display: none;">
                     </div>
                 </div>
 
-                <button type="submit" class="btn-success">Guardar Configuración</button>
+                <button type="submit" class="btn-success" data-i18n="save_config">Guardar Configuración</button>
             </form>
         </main>
+
+        <div class="admin-panel" style="margin-top: 20px;">
+            <h2 data-i18n="user_management">Gestión de Usuarios</h2>
+            <form id="form-user">
+                <div class="form-group">
+                    <label for="new-username" data-i18n="username">Usuario:</label>
+                    <input type="text" id="new-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-password" data-i18n="password">Contraseña:</label>
+                    <input type="password" id="new-password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new-role" data-i18n="role">Rol:</label>
+                    <select id="new-role">
+                        <option value="admin" data-i18n="role_admin">Administrador</option>
+                        <option value="caja" data-i18n="role_cashier">Cajero</option>
+                        <option value="cocina" data-i18n="role_kitchen">Cocina</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-success" data-i18n="create_user">Crear Usuario</button>
+            </form>
+            
+            <h3 data-i18n="user_list" style="margin-top: 20px;">Lista de Usuarios</h3>
+            <ul id="user-list" style="list-style: none; padding: 0;"></ul>
+        </div>
     </div>
 
+    <script src="locales.js"></script>
     <script>
         const formConfig = document.getElementById('form-config');
+        const formUser = document.getElementById('form-user');
+        const userList = document.getElementById('user-list');
         const logoInput = document.getElementById('logo');
         const logoPreview = document.getElementById('logo-preview');
+        let currentLang = 'es';
+
+        // Lógica de Logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        });
 
         // Cargar la configuración actual al abrir la página
         async function cargarConfiguracion() {
             const response = await fetch('/api/config');
             const config = await response.json();
+            currentLang = config.idioma || 'es';
 
             document.getElementById('nombre').value = config.nombre || '';
             document.getElementById('rtn').value = config.rtn || '';
             document.getElementById('cai').value = config.cai || '';
             document.getElementById('rangoInicio').value = config.rangoInicio || '';
             document.getElementById('rangoFin').value = config.rangoFin || '';
+            document.getElementById('idioma').value = config.idioma || 'es';
+            document.getElementById('moneda').value = config.moneda || 'L.';
+
+            const lang = config.idioma || 'es';
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
             
             if (config.logo) {
                 logoPreview.src = config.logo;
                 logoPreview.style.display = 'block';
             }
+            cargarUsuarios();
         }
 
         // Manejar el envío del formulario para guardar la configuración
@@ -94,10 +170,98 @@
             });
 
             if (response.ok) {
-                alert('¡Configuración guardada con éxito!');
+                alert(translations[currentLang]['alert_config_saved']);
                 cargarConfiguracion(); // Recargar para mostrar los cambios
             } else {
-                alert('Error al guardar la configuración.');
+                alert(translations[currentLang]['alert_config_error']);
+            }
+        });
+
+        // Cargar lista de usuarios
+        async function cargarUsuarios() {
+            const response = await fetch('/api/users');
+            if (response.ok) {
+                const users = await response.json();
+                userList.innerHTML = '';
+                users.forEach(user => {
+                    const li = document.createElement('li');
+                    li.className = 'admin-menu-item';
+                    li.innerHTML = `
+                        <span><strong>${user.username}</strong> (${user.role})</span>
+                        <div>
+                            <button class="btn-secondary btn-change-pass" data-id="${user.id}" data-i18n="change_password">Cambiar Contraseña</button>
+                            <button class="btn-danger btn-delete-user" data-id="${user.id}" data-i18n="delete">Borrar</button>
+                        </div>
+                    `;
+                    userList.appendChild(li);
+                });
+                // Re-aplicar traducciones a los botones nuevos
+                document.querySelectorAll('.btn-delete-user').forEach(btn => btn.textContent = translations[currentLang]['delete']);
+                document.querySelectorAll('.btn-change-pass').forEach(btn => btn.textContent = translations[currentLang]['change_password']);
+            }
+        }
+
+        // Crear usuario
+        formUser.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('new-username').value;
+            const password = document.getElementById('new-password').value;
+            const role = document.getElementById('new-role').value;
+
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password, role })
+            });
+
+            if (response.ok) {
+                alert(translations[currentLang]['alert_user_created']);
+                formUser.reset();
+                cargarUsuarios();
+            } else {
+                const errorData = await response.json();
+                let errorMsg = errorData.error;
+                // Detectar si el error es por base de datos desactualizada
+                if (errorMsg && errorMsg.includes('CHECK constraint failed')) {
+                    errorMsg += "\n\nSOLUCIÓN: La base de datos 'usuarios.db' tiene reglas antiguas. Por favor, borra ese archivo y reinicia el sistema.";
+                }
+                alert(`${translations[currentLang]['alert_user_error']}: ${errorMsg}`);
+            }
+        });
+
+        // Manejar acciones de usuario (Borrar / Cambiar Contraseña)
+        userList.addEventListener('click', async (e) => {
+            // Borrar
+            if (e.target.classList.contains('btn-delete-user')) {
+                if (confirm(translations[currentLang]['confirm_delete_user'])) {
+                    const id = e.target.dataset.id;
+                    const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        alert(translations[currentLang]['alert_user_deleted']);
+                        cargarUsuarios();
+                    } else {
+                        const err = await response.json();
+                        alert(err.error || translations[currentLang]['alert_user_error']);
+                    }
+                }
+            }
+            
+            // Cambiar Contraseña
+            if (e.target.classList.contains('btn-change-pass')) {
+                const newPass = prompt(translations[currentLang]['new_password_prompt']);
+                if (newPass) {
+                    const id = e.target.dataset.id;
+                    const response = await fetch(`/api/users/${id}/password`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: newPass })
+                    });
+                    if (response.ok) {
+                        alert(translations[currentLang]['alert_password_changed']);
+                    } else {
+                        alert(translations[currentLang]['alert_password_error']);
+                    }
+                }
             }
         });
 

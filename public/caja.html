@@ -12,42 +12,45 @@
         <header>
             <div style="display: flex; align-items: center; gap: 20px;">
                 <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
-                <h1 id="titulo-principal">Punto de Venta</h1>
+                <h1 id="titulo-principal" data-i18n="pos_title">Punto de Venta</h1>
             </div>
-            <button id="manage-menu-btn" class="btn-secondary">Administrar Menú</button>
+            <div style="display: flex; gap: 10px;">
+                <button id="manage-menu-btn" class="btn-secondary" data-i18n="manage_menu">Administrar Menú</button>
+                <button id="btn-logout" class="btn-danger" data-i18n="logout">Cerrar Sesión</button>
+            </div>
         </header>
         <main class="pos-layout">
             <div class="menu-panel">
-                <h2>Menú</h2>
+                <h2 data-i18n="menu_title">Menú</h2>
                 <div id="menu-items"></div>
             </div>
             <div class="orden-panel">
-                <h2>Orden Actual</h2>
+                <h2 data-i18n="current_order">Orden Actual</h2>
                 <ul id="orden-items">
                     <!-- Los items de la orden aparecerán aquí -->
                 </ul>
-                <div class="orden-summary">
-                    <p>Subtotal: <span id="orden-subtotal">L. 0.00</span></p>
-                    <p>ISV (15%): <span id="orden-isv">L. 0.00</span></p>
+                <div class="orden-summary" style="font-size: 1.1em;">
+                    <p><span data-i18n="subtotal">Subtotal</span>: <span id="orden-subtotal">0.00</span></p>
+                    <p><span id="tax-label" data-i18n="tax">Impuesto</span>: <span id="orden-isv">0.00</span></p>
                     <div class="orden-total">
-                        <strong>Total: <span id="orden-total">L. 0.00</span></strong>
+                        <strong><span data-i18n="total">Total</span>: <span id="orden-total">0.00</span></strong>
                     </div>
                 </div>
                 <div id="pago-panel" class="pago-panel hidden">
-                    <h3>Calcular Cambio</h3>
+                    <h3 data-i18n="calc_change">Calcular Cambio</h3>
                     <div class="form-group">
-                        <label for="monto-pagado">Cliente paga con (L.):</label>
-                        <input type="number" id="monto-pagado" step="0.01" min="0">
+                        <label for="monto-pagado"><span data-i18n="pay_with">Cliente paga con</span> (<span class="moneda-symbol"></span>):</label>
+                        <input type="number" id="monto-pagado" step="0.01" min="0" style="font-size: 1.2em; padding: 10px;">
                     </div>
-                    <button id="calcular-cambio-btn" class="btn-success">Calcular</button>
+                    <button id="calcular-cambio-btn" class="btn-success" data-i18n="calc_change">Calcular</button>
                     <div id="resultado-cambio" class="resultado-cambio hidden">
-                        <h4>Cambio a entregar: <span id="cambio-a-dar">L. 0.00</span></h4>
+                        <h4><span data-i18n="change_due">Cambio a entregar</span>: <span id="cambio-a-dar">0.00</span></h4>
                     </div>
                 </div>
                 <div class="pos-actions" style="margin-top: 15px;">
-                    <button id="enviar-orden-btn">Enviar a Cocina</button>
-                    <button id="imprimir-factura-btn" class="btn-secondary hidden">Imprimir Factura</button>
-                    <button id="nueva-orden-btn" class="btn-success hidden">Nueva Orden</button>
+                    <button id="enviar-orden-btn" data-i18n="send_kitchen">Enviar a Cocina</button>
+                    <button id="imprimir-factura-btn" class="btn-secondary hidden" data-i18n="print_invoice">Imprimir Factura</button>
+                    <button id="nueva-orden-btn" class="btn-success hidden" data-i18n="new_order">Nueva Orden</button>
                 </div>
             </div>
         </main>
@@ -59,26 +62,26 @@
             <span class="close-button">&times;</span>
             <div class="admin-layout">
                 <div class="admin-panel">
-                    <h2 id="form-title">Añadir Nuevo Item</h2>
+                    <h2 id="form-title" data-i18n="add_item">Añadir Nuevo Item</h2>
                     <form id="form-item">
                         <input type="hidden" id="item-id">
                         <div class="form-group">
-                            <label for="nombre">Nombre:</label>
+                            <label for="nombre" data-i18n="name">Nombre:</label>
                             <input type="text" id="nombre" name="nombre" required>
                         </div>
                         <div class="form-group">
-                            <label for="precio">Precio (L.):</label>
+                            <label for="precio"><span data-i18n="price">Precio</span> (<span class="moneda-symbol"></span>):</label>
                             <input type="number" id="precio" name="precio" step="0.01" min="0" required>
                         </div>
                         <div class="form-group">
-                            <label for="categoria">Categoría:</label>
+                            <label for="categoria" data-i18n="category">Categoría:</label>
                             <select id="categoria" name="categoria" required>
-                                <option value="Platillo">Platillo</option>
-                                <option value="Bebida">Bebida</option>
+                                <option value="Platillo" data-i18n="dish">Platillo</option>
+                                <option value="Bebida" data-i18n="drink">Bebida</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="imagen">Imagen del Producto:</label>
+                            <label for="imagen" data-i18n="image">Imagen del Producto:</label>
                             <input type="file" id="imagen" name="imagen" accept="image/*">
                             <div id="imagen-preview-container" style="margin-top: 10px; display: none;">
                                 <img id="imagen-preview" src="" alt="Vista previa" style="max-height: 100px; border-radius: 5px;">
@@ -86,14 +89,14 @@
                         </div>
                         <div class="form-group form-group-checkbox">
                             <input type="checkbox" id="impuesto_incluido" name="impuesto_incluido" checked>
-                            <label for="impuesto_incluido">Precio incluye ISV (15%)</label>
+                            <label id="label-impuesto-incluido" for="impuesto_incluido" data-i18n="price_includes_tax">Precio incluye ISV</label>
                         </div>
-                        <button type="submit" class="btn-success">Guardar Item</button>
-                        <button type="button" id="cancel-edit-btn" class="btn-secondary hidden">Cancelar Edición</button>
+                        <button type="submit" class="btn-success" data-i18n="save_item">Guardar Item</button>
+                        <button type="button" id="cancel-edit-btn" class="btn-secondary hidden" data-i18n="cancel">Cancelar Edición</button>
                     </form>
                 </div>
                 <div class="admin-panel">
-                    <h2>Menú Actual</h2>
+                    <h2 data-i18n="current_menu_admin">Menú Actual</h2>
                     <ul id="lista-menu-admin"></ul>
                 </div>
             </div>
@@ -102,6 +105,7 @@
 
     <!-- Importar la librería de Socket.IO para el cliente -->
     <script src="/socket.io/socket.io.js"></script>
+    <script src="locales.js"></script>
     <script>
         const menuItemsContainer = document.getElementById('menu-items');
         const ordenItemsList = document.getElementById('orden-items');
@@ -127,6 +131,15 @@
         let menu = [];
         let totalDeLaOrden = 0;
         let ultimaOrdenId = null;
+        let currentLang = 'es';
+        let monedaSymbol = 'L.'; // Valor por defecto
+        let taxRate = 0.15; // Valor por defecto (15%)
+
+        // Lógica de Logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        });
 
         // Conectar al servidor de sockets
         const socket = io();
@@ -136,9 +149,32 @@
             try {
                 const response = await fetch('/api/config');
                 const config = await response.json();
+                
+                monedaSymbol = config.moneda || 'L.';
+                taxRate = config.tasaImpuesto || 0.15;
+                currentLang = config.idioma || 'es';
+
+                // Actualizar símbolos de moneda en la UI
+                document.querySelectorAll('.moneda-symbol').forEach(el => el.textContent = monedaSymbol);
+
+                // Traducir UI
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (translations[currentLang][key]) {
+                        el.textContent = translations[currentLang][key];
+                    }
+                });
+
+                // Actualizar etiquetas de impuestos con el porcentaje correcto
+                const taxPercent = (taxRate * 100).toFixed(1).replace('.0', ''); // 15.0 -> 15, 12.5 -> 12.5
+                const taxName = translations[currentLang]['tax'];
+                document.getElementById('tax-label').textContent = `${taxName} (${taxPercent}%)`;
+                document.getElementById('label-impuesto-incluido').textContent = `${translations[currentLang]['price_includes_tax']} (${taxPercent}%)`;
+
                 if (config.nombre) {
-                    document.getElementById('titulo-principal').textContent = `Punto de Venta - ${config.nombre}`;
-                    document.title = `Punto de Venta (POS) - ${config.nombre}`;
+                    const titulo = `${translations[currentLang]['pos_title']} - ${config.nombre}`;
+                    document.getElementById('titulo-principal').textContent = titulo;
+                    document.title = titulo;
                 }
                 if (config.logo) {
                     const logoImg = document.getElementById('restaurante-logo');
@@ -150,29 +186,49 @@
             }
         }
 
-        // Escuchar el evento 'menu_actualizado' y recargar el menú
-        socket.on('menu_actualizado', () => {
-            console.log('El menú ha sido actualizado. Recargando...');
-            cargarMenu();
-        });
-
         // Cargar el menú desde el servidor
         async function cargarMenu() {
-            const response = await fetch('/api/menu');
-            menu = await response.json();
-            renderizarMenu();
+            try {
+                const response = await fetch('/api/menu');
+                if (!response.ok) {
+                    throw new Error(`${translations[currentLang]['server_error']} ${response.status}`);
+                }
+                const data = await response.json();
+                
+                // Verificar que recibimos un arreglo (lista) y no un error
+                if (Array.isArray(data)) {
+                    // Asegurar que el precio sea un número para evitar errores con toFixed
+                    menu = data.map(item => ({
+                        ...item,
+                        precio: parseFloat(item.precio)
+                    }));
+                    renderizarMenu();
+                } else {
+                    console.error('El formato de datos recibido no es válido:', data);
+                    alert(translations[currentLang]['invalid_data']);
+                }
+            } catch (error) {
+                console.error('Error al cargar el menú:', error);
+                alert(translations[currentLang]['connection_error']);
+            }
         }
 
         // Mostrar el menú en la pantalla
         function renderizarMenu() {
             menuItemsContainer.innerHTML = '';
+            
+            if (menu.length === 0) {
+                menuItemsContainer.innerHTML = `<p style="grid-column: 1/-1; text-align: center; padding: 20px; color: #666; font-size: 1.2em;">${translations[currentLang]['msg_menu_empty']}</p>`;
+                return;
+            }
+
             menu.forEach(item => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'menu-item';
                 itemDiv.innerHTML = `
-                    ${item.imagen ? `<img src="${item.imagen}" alt="${item.nombre}">` : '<div class="no-image">Sin Imagen</div>'}
+                    ${item.imagen ? `<img src="${item.imagen}" alt="${item.nombre}">` : `<div class="no-image">${translations[currentLang]['no_image']}</div>`}
                     <strong>${item.nombre}</strong>
-                    <span class="price">L. ${item.precio.toFixed(2)}</span>
+                    <span class="price">${monedaSymbol} ${item.precio.toFixed(2)}</span>
                 `;
                 itemDiv.onclick = () => agregarAOrden(item);
                 menuItemsContainer.appendChild(itemDiv);
@@ -195,12 +251,12 @@
                 let itemSubtotal, itemIsv, itemTotal;
 
                 if (item.impuesto_incluido) {
-                    itemSubtotal = item.precio / 1.15;
+                    itemSubtotal = item.precio / (1 + taxRate);
                     itemIsv = item.precio - itemSubtotal;
                     itemTotal = item.precio;
                 } else {
                     itemSubtotal = item.precio;
-                    itemIsv = item.precio * 0.15;
+                    itemIsv = item.precio * taxRate;
                     itemTotal = itemSubtotal + itemIsv;
                 }
 
@@ -213,20 +269,20 @@
                         <span>${item.nombre}</span>
                         <small>Sub: ${itemSubtotal.toFixed(2)} + ISV: ${itemIsv.toFixed(2)}</small>
                     </div>
-                    <span>L. ${itemTotal.toFixed(2)}</span>
+                    <span>${monedaSymbol} ${itemTotal.toFixed(2)}</span>
                 `;
                 ordenItemsList.appendChild(li);
             });
-            ordenSubtotalSpan.textContent = `L. ${subtotalGeneral.toFixed(2)}`;
-            ordenIsvSpan.textContent = `L. ${isvGeneral.toFixed(2)}`;
+            ordenSubtotalSpan.textContent = `${monedaSymbol} ${subtotalGeneral.toFixed(2)}`;
+            ordenIsvSpan.textContent = `${monedaSymbol} ${isvGeneral.toFixed(2)}`;
             totalDeLaOrden = subtotalGeneral + isvGeneral;
-            ordenTotalSpan.textContent = `L. ${totalDeLaOrden.toFixed(2)}`;
+            ordenTotalSpan.textContent = `${monedaSymbol} ${totalDeLaOrden.toFixed(2)}`;
         }
 
         // Enviar la orden al servidor
         async function enviarOrden() {
             if (ordenActual.length === 0) {
-                alert('La orden está vacía.');
+                alert(translations[currentLang]['alert_order_empty']);
                 return;
             }
 
@@ -237,7 +293,7 @@
             });
 
             if (!response.ok) {
-                alert('Error al enviar la orden.');
+                alert(translations[currentLang]['alert_error_sending_order']);
                 return;
             }
 
@@ -250,7 +306,7 @@
             enviarOrdenBtn.classList.add('hidden');
             pagoPanel.classList.remove('hidden');
             document.getElementById('monto-pagado').focus();
-            alert(`Orden #${ultimaOrdenId} enviada a cocina.`);
+            alert(translations[currentLang]['alert_order_sent'].replace('{id}', ultimaOrdenId));
         }
 
         // Calcular el cambio
@@ -259,13 +315,13 @@
             const montoPagado = parseFloat(montoPagadoInput.value);
 
             if (isNaN(montoPagado) || montoPagado < totalDeLaOrden) {
-                alert('El monto pagado debe ser mayor o igual al total de la orden.');
+                alert(translations[currentLang]['alert_payment_error']);
                 montoPagadoInput.focus();
                 return;
             }
 
             const cambio = montoPagado - totalDeLaOrden;
-            document.getElementById('cambio-a-dar').textContent = `L. ${cambio.toFixed(2)}`;
+            document.getElementById('cambio-a-dar').textContent = `${monedaSymbol} ${cambio.toFixed(2)}`;
 
             // Mostrar resultado y botones finales
             resultadoCambio.classList.remove('hidden');
@@ -289,8 +345,8 @@
         });
 
         // Cargar todo al iniciar
-        cargarConfiguracion();
-        cargarMenu();
+        // Aseguramos que primero cargue la config (moneda, impuestos) y luego el menú
+        cargarConfiguracion().then(() => cargarMenu());
 
         // --- LÓGICA DE ADMINISTRACIÓN DEL MENÚ ---
 
@@ -316,10 +372,14 @@
             
             listaMenuAdmin.innerHTML = '';
             menu.forEach(item => {
+                // Traducir categoría para mostrar
+                const catKey = item.categoria === 'Platillo' ? 'dish' : 'drink';
+                const catTranslated = translations[currentLang][catKey] || item.categoria;
+
                 const li = document.createElement('li');
                 li.className = 'admin-menu-item';
                 li.innerHTML = `
-                    <span>${item.nombre} (${item.categoria}) - L. ${item.precio.toFixed(2)}</span>
+                    <span>${item.nombre} (${catTranslated}) - ${monedaSymbol} ${item.precio.toFixed(2)}</span>
                     <div>
                         <button class="btn-edit" data-id="${item.id}">Editar</button>
                         <button class="btn-danger" data-id="${item.id}">Borrar</button>
@@ -389,10 +449,10 @@
 
             // Botón BORRAR
             if (target.classList.contains('btn-danger')) {
-                if (confirm('¿Estás seguro de que quieres borrar este item?')) {
+                if (confirm(translations[currentLang]['confirm_delete_item'])) {
                     const response = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
                     if (!response.ok) {
-                        alert('Error al borrar el item.');
+                        alert(translations[currentLang]['alert_error_delete_item']);
                     }
                 }
             }

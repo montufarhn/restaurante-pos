@@ -535,4 +535,7 @@ header h1 {
         margin: 0;
         width: 100%;
     }
+    .no-print {
+        display: none !important;
+    }
 }

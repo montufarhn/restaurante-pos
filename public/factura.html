@@ -9,21 +9,25 @@
 </head>
 <body class="factura-body">
 
+    <div class="no-print" style="padding: 10px; display: flex; justify-content: flex-end; background-color: #f8f9fa; border-bottom: 1px solid #ddd; margin-bottom: 20px;">
+        <button id="btn-logout" class="btn-danger" data-i18n="logout">Cerrar Sesión</button>
+    </div>
+
     <div class="factura-container">
         <div id="factura-content">
             <!-- La información se cargará aquí dinámicamente -->
             <div class="text-center">
                 <img id="logo" src="" alt="Logo" style="max-width: 100px; display: none;">
                 <h2 id="nombre-restaurante"></h2>
-                <p>RTN: <span id="rtn"></span></p>
+                <p><span data-i18n="rtn">RTN</span>: <span id="rtn"></span></p>
             </div>
 
             <hr>
 
             <div class="text-center">
-                <h3>FACTURA</h3>
-                <p><strong>N°:</strong> <span id="numero-factura"></span></p>
-                <p><strong>Fecha:</strong> <span id="fecha-factura"></span></p>
+                <h3 data-i18n="invoice_title">FACTURA</h3>
+                <p><strong data-i18n="invoice_no">N°</strong>: <span id="numero-factura"></span></p>
+                <p><strong data-i18n="date">Fecha</strong>: <span id="fecha-factura"></span></p>
             </div>
 
             <hr>
@@ -32,9 +36,9 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Cant.</th>
-                            <th>Descripción</th>
-                            <th>Total</th>
+                            <th data-i18n="quantity">Cant.</th>
+                            <th data-i18n="description">Descripción</th>
+                            <th data-i18n="total">Total</th>
                         </tr>
                     </thead>
                     <tbody id="items-factura">
@@ -46,21 +50,22 @@
             <hr>
 
             <div class="factura-totales">
-                <p><strong>SUBTOTAL:</strong> L. <span id="subtotal"></span></p>
-                <p><strong>ISV (15%):</strong> L. <span id="isv"></span></p>
-                <p><strong>TOTAL A PAGAR:</strong> L. <span id="total-pagar"></span></p>
+                <p><strong data-i18n="subtotal">SUBTOTAL</strong>: <span id="moneda-1"></span> <span id="subtotal"></span></p>
+                <p><strong id="tax-label" data-i18n="tax">ISV</strong>: <span id="moneda-2"></span> <span id="isv"></span></p>
+                <p><strong data-i18n="total_pay">TOTAL A PAGAR</strong>: <span id="moneda-3"></span> <span id="total-pagar"></span></p>
             </div>
 
             <hr>
 
             <div class="text-center factura-footer">
-                <p><strong>CAI:</strong> <span id="cai"></span></p>
-                <p><strong>Rango de Facturación:</strong> <span id="rango-inicio"></span> al <span id="rango-fin"></span></p>
-                <p>¡Gracias por su compra!</p>
+                <p><strong data-i18n="cai">CAI</strong>: <span id="cai"></span></p>
+                <p><strong data-i18n="billing_range_msg">Rango de Facturación</strong>: <span id="rango-inicio"></span> - <span id="rango-fin"></span></p>
+                <p data-i18n="thanks">¡Gracias por su compra!</p>
             </div>
         </div>
     </div>
 
+    <script src="locales.js"></script>
     <script>
         async function cargarFactura() {
             const params = new URLSearchParams(window.location.search);
@@ -85,13 +90,28 @@
             const orden = await ordenRes.json();
             const config = await configRes.json();
 
+            // Aplicar traducciones
+            const lang = config.idioma || 'es';
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+
+            // Calcular porcentaje de impuesto para mostrar
+            const taxRate = config.tasaImpuesto || 0.15;
+            const taxPercent = (taxRate * 100).toFixed(1).replace('.0', '');
+            const taxName = translations[lang]['tax'];
+            document.getElementById('tax-label').textContent = `${taxName} (${taxPercent}%):`;
+
             // Llenar datos del restaurante
             if (config.logo) {
                 document.getElementById('logo').src = config.logo;
                 document.getElementById('logo').style.display = 'block';
             }
             document.getElementById('nombre-restaurante').textContent = config.nombre;
-            document.title = `Factura - ${config.nombre}`;
+            document.title = `${translations[lang]['invoice_title']} - ${config.nombre}`;
             document.getElementById('rtn').textContent = config.rtn;
             document.getElementById('cai').textContent = config.cai;
             document.getElementById('rango-inicio').textContent = config.rangoInicio;
@@ -103,6 +123,12 @@
             document.getElementById('subtotal').textContent = orden.subtotal.toFixed(2);
             document.getElementById('isv').textContent = orden.isv.toFixed(2);
             document.getElementById('total-pagar').textContent = orden.total.toFixed(2);
+
+            // Moneda
+            const moneda = config.moneda || 'L.';
+            document.getElementById('moneda-1').textContent = moneda;
+            document.getElementById('moneda-2').textContent = moneda;
+            document.getElementById('moneda-3').textContent = moneda;
 
             // Llenar items
             const itemsTbody = document.getElementById('items-factura');
@@ -120,6 +146,13 @@
             // Imprimir automáticamente al cargar
             window.print();
         }
+
+        // Lógica de Logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            // Redirigir al login (index.html)
+            window.location.href = '/';
+        });
 
         window.onload = cargarFactura;
     </script>
