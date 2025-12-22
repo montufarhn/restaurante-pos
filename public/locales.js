@@ -95,7 +95,9 @@ const translations = {
         connection_error: "Error de conexión al cargar el menú. Revisa la consola.",
         login_title: "Iniciar Sesión",
         login_button: "Ingresar",
-        login_error: "Usuario o contraseña incorrectos"
+        login_error: "Usuario o contraseña incorrectos",
+        actions: "Acciones",
+        view_invoice: "Ver Factura"
     },
     en: {
         system_title: "POS System",
@@ -193,7 +195,9 @@ const translations = {
         connection_error: "Connection error loading menu. Check console.",
         login_title: "Login",
         login_button: "Sign In",
-        login_error: "Incorrect username or password"
+        login_error: "Incorrect username or password",
+        actions: "Actions",
+        view_invoice: "View Invoice"
     },
     fr: {
         system_title: "Système POS",
@@ -291,7 +295,9 @@ const translations = {
         connection_error: "Erreur de connexion lors du chargement du menu. Vérifiez la console.",
         login_title: "Connexion",
         login_button: "Se connecter",
-        login_error: "Nom d'utilisateur ou mot de passe incorrect"
+        login_error: "Nom d'utilisateur ou mot de passe incorrect",
+        actions: "Actions",
+        view_invoice: "Voir Facture"
     },
     pt: {
         system_title: "Sistema POS",
@@ -389,7 +395,9 @@ const translations = {
         connection_error: "Erro de conexão ao carregar o menu. Verifique a consola.",
         login_title: "Iniciar Sessão",
         login_button: "Entrar",
-        login_error: "Nome de utilizador ou palavra-passe incorretos"
+        login_error: "Nome de utilizador ou palavra-passe incorretos",
+        actions: "Ações",
+        view_invoice: "Ver Fatura"
     },
     ja: {
         system_title: "POSシステム",
@@ -487,7 +495,9 @@ const translations = {
         connection_error: "メニューの読み込み中に接続エラーが発生しました。コンソールを確認してください。",
         login_title: "ログイン",
         login_button: "ログイン",
-        login_error: "ユーザー名またはパスワードが正しくありません"
+        login_error: "ユーザー名またはパスワードが正しくありません",
+        actions: "アクション",
+        view_invoice: "請求書を見る"
     },
     zh: {
         system_title: "POS系统",
@@ -585,6 +595,8 @@ const translations = {
         connection_error: "加载菜单时连接错误。请检查控制台。",
         login_title: "登录",
         login_button: "登录",
-        login_error: "用户名或密码不正确"
+        login_error: "用户名或密码不正确",
+        actions: "操作",
+        view_invoice: "查看发票"
     }
 };

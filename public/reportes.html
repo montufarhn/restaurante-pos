@@ -71,6 +71,7 @@
                                 <th data-i18n="subtotal">Subtotal</th>
                                 <th data-i18n="tax">ISV</th>
                                 <th data-i18n="total">Total</th>
+                                <th data-i18n="actions">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="body-historial">
@@ -184,13 +185,14 @@
         async function cargarHistorial() {
             const response = await fetch('/api/reportes/historial');
             if (!response.ok) {
-                bodyHistorial.innerHTML = `<tr><td colspan="5">${translations[currentLang]['msg_error_history']}</td></tr>`;
+                bodyHistorial.innerHTML = `<tr><td colspan="6">${translations[currentLang]['msg_error_history']}</td></tr>`;
                 return;
             }
 
             historialData = await response.json(); // Guardar los datos en la variable global
+            bodyHistorial.innerHTML = ''; // Limpiar la tabla antes de agregar nuevas filas
             if (historialData.length === 0) {
-                bodyHistorial.innerHTML = `<tr><td colspan="5">${translations[currentLang]['msg_no_sales']}</td></tr>`;
+                bodyHistorial.innerHTML = `<tr><td colspan="6">${translations[currentLang]['msg_no_sales']}</td></tr>`;
             } else {
                 historialData.forEach(venta => {
                     const tr = document.createElement('tr');
@@ -200,6 +202,7 @@
                         <td>${monedaSymbol} ${venta.subtotal.toFixed(2)}</td>
                         <td>${monedaSymbol} ${venta.isv.toFixed(2)}</td>
                         <td>${monedaSymbol} ${venta.total.toFixed(2)}</td>
+                        <td><a href="/factura.html?ordenId=${venta.id}" target="_blank" class="btn-secondary" style="padding: 5px 10px; text-decoration: none;">${translations[currentLang]['view_invoice']}</a></td>
                     `;
                     bodyHistorial.appendChild(tr);
                 });
