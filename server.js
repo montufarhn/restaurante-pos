@@ -683,5 +683,7 @@ server.listen(PORT, () => {
     // console.log(`${t.kitchen_screen} ${url}/cocina.html`);
 
     // Abrir el navegador automáticamente
-    open(url);
+    if (process.env.NO_OPEN !== 'true') {
+        open(url);
+    }
 });
