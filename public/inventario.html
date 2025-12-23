@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <img id="restaurante-logo" src="" alt="Logo" style="max-height: 50px; display: none; border-radius: 8px;">
+                <h1 id="titulo-principal" data-i18n="inventory_title">Inventario</h1>
+            </div>
+            <button id="btn-logout" class="btn-danger" data-i18n="logout">Cerrar Sesión</button>
+        </header>
+        <main>
+            <div class="admin-panel">
+                <h2 data-i18n="add_product">Agregar Producto / Ingrediente</h2>
+                <form id="form-inventario">
+                    <input type="hidden" id="producto-id">
+                    <div class="form-group-inline">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="nombre" data-i18n="name">Nombre:</label>
+                            <input type="text" id="nombre" name="nombre" required placeholder="Ej. Coca Cola, Tomates, Harina...">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="cantidad" data-i18n="quantity">Cantidad:</label>
+                            <input type="number" id="cantidad" name="cantidad" step="0.01" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="unidad" data-i18n="unit">Unidad:</label>
+                            <select id="unidad" name="unidad">
+                                <option value="unidades">Unidades</option>
+                                <option value="kg">Kilogramos (kg)</option>
+                                <option value="lb">Libras (lb)</option>
+                                <option value="lt">Litros (lt)</option>
+                                <option value="oz">Onzas (oz)</option>
+                                <option value="paq">Paquetes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="minimo" data-i18n="min_stock">Stock Mínimo (Alerta):</label>
+                        <input type="number" id="minimo" name="minimo" value="5">
+                    </div>
+                    <button type="submit" class="btn-success" data-i18n="save">Guardar</button>
+                    <button type="button" id="btn-cancelar" class="btn-secondary hidden" data-i18n="cancel">Cancelar</button>
+                </form>
+            </div>
+
+            <div class="admin-panel" style="margin-top: 20px;">
+                <h2 data-i18n="current_inventory">Inventario Actual</h2>
+                <div class="table-container">
+                    <table id="tabla-inventario" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2; text-align: left;">
+                                <th style="padding: 10px;" data-i18n="name">Nombre</th>
+                                <th style="padding: 10px;" data-i18n="quantity">Cantidad</th>
+                                <th style="padding: 10px;" data-i18n="unit">Unidad</th>
+                                <th style="padding: 10px;" data-i18n="actions">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-inventario">
+                            <!-- Items se cargarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="locales.js"></script>
+    <script>
+        // Inyectar traducciones faltantes para esta página
+        if (typeof translations !== 'undefined') {
+            const newKeys = {
+                es: { inventory_title: 'Inventario', add_product: 'Agregar Producto', unit: 'Unidad', min_stock: 'Stock Mínimo', current_inventory: 'Inventario Actual' },
+                en: { inventory_title: 'Inventory', add_product: 'Add Product', unit: 'Unit', min_stock: 'Min Stock', current_inventory: 'Current Inventory' }
+            };
+            Object.keys(newKeys).forEach(l => { if (translations[l]) Object.assign(translations[l], newKeys[l]); });
+        }
+
+        const form = document.getElementById('form-inventario');
+        const lista = document.getElementById('lista-inventario');
+        const btnCancelar = document.getElementById('btn-cancelar');
+        let currentLang = 'es';
+
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        });
+
+        async function cargarConfiguracion() {
+            const res = await fetch('/api/config');
+            const config = await res.json();
+            currentLang = config.idioma || 'es';
+            
+            // Aplicar traducciones
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[currentLang][key]) el.textContent = translations[currentLang][key];
+            });
+
+            if (config.logo) {
+                document.getElementById('restaurante-logo').src = config.logo;
+                document.getElementById('restaurante-logo').style.display = 'block';
+            }
+            cargarInventario();
+        }
+
+        async function cargarInventario() {
+            try {
+                const res = await fetch('/api/inventario');
+                if (!res.ok) return; // Si el endpoint no existe aún, no hacemos nada
+                const items = await res.json();
+                
+                lista.innerHTML = '';
+                items.forEach(item => {
+                    const row = document.createElement('tr');
+                    row.style.borderBottom = '1px solid #ddd';
+                    // Alerta visual si el stock es bajo
+                    const stockStyle = item.cantidad <= (item.minimo || 5) ? 'color: red; font-weight: bold;' : '';
+                    
+                    row.innerHTML = `
+                        <td style="padding: 10px;">${item.nombre}</td>
+                        <td style="padding: 10px; ${stockStyle}">${item.cantidad}</td>
+                        <td style="padding: 10px;">${item.unidad}</td>
+                        <td style="padding: 10px;">
+                            <button class="btn-secondary btn-edit" data-id="${item.id}" data-json='${JSON.stringify(item)}'>Editar</button>
+                            <button class="btn-danger btn-delete" data-id="${item.id}">Borrar</button>
+                        </td>
+                    `;
+                    lista.appendChild(row);
+                });
+            } catch (e) {
+                console.log("Backend de inventario no implementado aún.");
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('producto-id').value;
+            const data = {
+                nombre: document.getElementById('nombre').value,
+                cantidad: parseFloat(document.getElementById('cantidad').value),
+                unidad: document.getElementById('unidad').value,
+                minimo: parseFloat(document.getElementById('minimo').value)
+            };
+
+            const url = id ? `/api/inventario/${id}` : '/api/inventario';
+            const method = id ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                form.reset();
+                document.getElementById('producto-id').value = '';
+                btnCancelar.classList.add('hidden');
+                cargarInventario();
+            } else {
+                alert('Error al guardar');
+            }
+        });
+
+        lista.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('btn-delete')) {
+                if(confirm(translations[currentLang]['confirm_delete'] || '¿Borrar?')) {
+                    await fetch(`/api/inventario/${e.target.dataset.id}`, { method: 'DELETE' });
+                    cargarInventario();
+                }
+            } else if (e.target.classList.contains('btn-edit')) {
+                const item = JSON.parse(e.target.dataset.json);
+                document.getElementById('producto-id').value = item.id;
+                document.getElementById('nombre').value = item.nombre;
+                document.getElementById('cantidad').value = item.cantidad;
+                document.getElementById('unidad').value = item.unidad;
+                document.getElementById('minimo').value = item.minimo || 5;
+                btnCancelar.classList.remove('hidden');
+            }
+        });
+
+        btnCancelar.addEventListener('click', () => {
+            form.reset();
+            document.getElementById('producto-id').value = '';
+            btnCancelar.classList.add('hidden');
+        });
+
+        cargarConfiguracion();
+    </script>
+</body>
+</html>

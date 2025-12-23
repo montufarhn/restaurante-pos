@@ -202,7 +202,10 @@
                         <td>${monedaSymbol} ${venta.subtotal.toFixed(2)}</td>
                         <td>${monedaSymbol} ${venta.isv.toFixed(2)}</td>
                         <td>${monedaSymbol} ${venta.total.toFixed(2)}</td>
-                        <td><a href="/factura.html?ordenId=${venta.id}" target="_blank" class="btn-secondary" style="padding: 5px 10px; text-decoration: none;">${translations[currentLang]['view_invoice']}</a></td>
+                        <td>
+                            <a href="/factura.html?ordenId=${venta.id}" target="_blank" class="btn-secondary" style="padding: 5px 10px; text-decoration: none;">${translations[currentLang]['view_invoice']}</a>
+                            <button class="btn-danger btn-delete-invoice" data-id="${venta.id}" style="padding: 5px 10px; margin-left: 5px;">${translations[currentLang]['delete']}</button>
+                        </td>
                     `;
                     bodyHistorial.appendChild(tr);
                 });
@@ -278,6 +281,22 @@
             } catch (error) {
                 alert(translations[currentLang]['alert_reset_error']);
                 console.error(error);
+            }
+        });
+
+        // Evento para borrar una factura individual
+        bodyHistorial.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('btn-delete-invoice')) {
+                if (confirm(translations[currentLang]['confirm_delete_invoice'] || '¿Eliminar esta factura?')) {
+                    const id = e.target.dataset.id;
+                    const response = await fetch(`/api/ordenes/${id}`, { method: 'DELETE' });
+                    
+                    if (response.ok) {
+                        cargarHistorial();
+                    } else {
+                        alert(translations[currentLang]['server_error'] || 'Error');
+                    }
+                }
             }
         });
     </script>

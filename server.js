@@ -177,22 +177,27 @@ const db = new sqlite3.Database('./restaurante.db', (err) => {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nombre TEXT NOT NULL,
                 precio REAL NOT NULL,
-                categoria TEXT NOT NULL
+                categoria TEXT NOT NULL,
+                impuesto_incluido INTEGER DEFAULT 1 NOT NULL,
+                imagen TEXT
             )`, (err) => {
                 if (err) return console.error("Error al crear la tabla 'menu'", err.message);
             });
 
-            // Verificar y añadir la columna 'impuesto_incluido' si no existe
+            // Verificar y añadir columnas faltantes a 'menu' (impuesto_incluido, imagen)
             db.all("PRAGMA table_info(menu)", (err, columns) => {
                 if (err) return console.error("Error al leer la información de la tabla 'menu'", err.message);
                 
-                const hasTaxColumn = columns.some(col => col.name === 'impuesto_incluido');
-                if (!hasTaxColumn) {
-                    console.log("Añadiendo columna 'impuesto_incluido' a la tabla 'menu'...");
-                    db.run("ALTER TABLE menu ADD COLUMN impuesto_incluido INTEGER DEFAULT 1 NOT NULL", (err) => {
-                        if (err) return console.error("Error al añadir la columna 'impuesto_incluido'", err.message);
-                        console.log("Columna 'impuesto_incluido' añadida con éxito.");
-                    });
+                const colNames = columns.map(col => col.name);
+
+                if (!colNames.includes('impuesto_incluido')) {
+                    console.log("Actualizando DB: Añadiendo columna 'impuesto_incluido'...");
+                    db.run("ALTER TABLE menu ADD COLUMN impuesto_incluido INTEGER DEFAULT 1 NOT NULL");
+                }
+
+                if (!colNames.includes('imagen')) {
+                    console.log("Actualizando DB: Añadiendo columna 'imagen'...");
+                    db.run("ALTER TABLE menu ADD COLUMN imagen TEXT");
                 }
             });
 
@@ -214,6 +219,15 @@ const db = new sqlite3.Database('./restaurante.db', (err) => {
                 precio REAL NOT NULL,
                 cantidad INTEGER NOT NULL,
                 FOREIGN KEY (orden_id) REFERENCES ordenes(id)
+            )`);
+
+            // Crear tabla de inventario
+            db.run(`CREATE TABLE IF NOT EXISTS inventario (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                cantidad REAL DEFAULT 0,
+                unidad TEXT DEFAULT 'unidades',
+                minimo REAL DEFAULT 5
             )`);
 
             db.get("SELECT COUNT(*) as count FROM menu", (err, row) => {
@@ -343,7 +357,13 @@ app.delete('/api/users/:id', checkAuth, checkRole(['admin']), (req, res) => {
 
 // Endpoint para obtener el menú
 app.get('/api/menu', (req, res) => {
-    db.all("SELECT * FROM menu ORDER BY nombre", [], (err, rows) => {
+    // Hacemos LEFT JOIN con inventario para obtener el stock si el nombre coincide
+    const sql = `
+        SELECT m.*, i.cantidad as stock 
+        FROM menu m 
+        LEFT JOIN inventario i ON m.nombre = i.nombre 
+        ORDER BY m.nombre`;
+    db.all(sql, [], (err, rows) => {
         if (err) {
             console.error("Error al consultar el menú en la BD:", err.message);
             res.status(500).json({ "error": err.message });
@@ -440,6 +460,43 @@ app.put('/api/menu/:id', checkAuth, checkRole(['admin']), upload.single('imagen'
     });
 });
 
+// --- Endpoints de Inventario ---
+
+// Obtener inventario
+app.get('/api/inventario', checkAuth, checkRole(['admin', 'caja']), (req, res) => {
+    db.all("SELECT * FROM inventario ORDER BY nombre", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// Agregar item al inventario
+app.post('/api/inventario', checkAuth, checkRole(['admin']), (req, res) => {
+    const { nombre, cantidad, unidad, minimo } = req.body;
+    db.run("INSERT INTO inventario (nombre, cantidad, unidad, minimo) VALUES (?, ?, ?, ?)", 
+        [nombre, cantidad, unidad, minimo], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: this.lastID });
+    });
+});
+
+// Actualizar item de inventario
+app.put('/api/inventario/:id', checkAuth, checkRole(['admin']), (req, res) => {
+    const { nombre, cantidad, unidad, minimo } = req.body;
+    db.run("UPDATE inventario SET nombre = ?, cantidad = ?, unidad = ?, minimo = ? WHERE id = ?", 
+        [nombre, cantidad, unidad, minimo, req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Actualizado" });
+    });
+});
+
+// Borrar item de inventario
+app.delete('/api/inventario/:id', checkAuth, checkRole(['admin']), (req, res) => {
+    db.run("DELETE FROM inventario WHERE id = ?", req.params.id, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Eliminado" });
+    });
+});
 
 // Endpoint para crear una nueva orden
 app.post('/api/ordenes', checkAuth, checkRole(['admin', 'caja']), (req, res) => {
@@ -483,6 +540,8 @@ app.post('/api/ordenes', checkAuth, checkRole(['admin', 'caja']), (req, res) => 
 
             Object.values(itemCounts).forEach(item => {
                 db.run(sqlItem, [ordenId, item.nombre, item.precio, item.cantidad]);
+                // Descontar del inventario si existe un producto con el mismo nombre
+                db.run("UPDATE inventario SET cantidad = cantidad - ? WHERE nombre = ?", [item.cantidad, item.nombre]);
             });
 
             db.run('COMMIT', (err) => {
@@ -492,6 +551,8 @@ app.post('/api/ordenes', checkAuth, checkRole(['admin', 'caja']), (req, res) => 
                 const nuevaOrdenCompleta = { id: ordenId, items: req.body.items, subtotal: granSubtotal, isv: granIsv, total: granTotal, fecha, estado };
                 console.log(`Nueva orden recibida #${ordenId}`);
                 io.emit('nueva_orden', nuevaOrdenCompleta);
+                // Notificar a las cajas para que actualicen el stock visualmente
+                io.emit('menu_actualizado');
                 res.status(201).json(nuevaOrdenCompleta);
             });
         });
@@ -519,6 +580,18 @@ app.get('/api/ordenes/:id', checkAuth, (req, res) => {
             });
             orden.items = fullItems;
             res.json(orden);
+        });
+    });
+});
+
+// Endpoint para BORRAR una orden específica (Factura)
+app.delete('/api/ordenes/:id', checkAuth, checkRole(['admin']), (req, res) => {
+    const id = parseInt(req.params.id);
+    db.serialize(() => {
+        db.run("DELETE FROM orden_items WHERE orden_id = ?", id);
+        db.run("DELETE FROM ordenes WHERE id = ?", id, function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ message: "Orden eliminada" });
         });
     });
 });

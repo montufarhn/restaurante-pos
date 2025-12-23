@@ -223,12 +223,20 @@
             }
 
             menu.forEach(item => {
+                // Lógica visual de Stock (si el backend lo provee)
+                let stockHtml = '';
+                if (item.stock !== undefined && item.stock !== null) {
+                    const color = item.stock > 10 ? 'green' : (item.stock > 0 ? 'orange' : 'red');
+                    stockHtml = `<div style="font-size: 0.8em; color: ${color}; margin-top: 5px; font-weight: bold;">Stock: ${item.stock}</div>`;
+                }
+
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'menu-item';
                 itemDiv.innerHTML = `
                     ${item.imagen ? `<img src="${item.imagen}" alt="${item.nombre}">` : `<div class="no-image">${translations[currentLang]['no_image']}</div>`}
                     <strong>${item.nombre}</strong>
                     <span class="price">${monedaSymbol} ${item.precio.toFixed(2)}</span>
+                    ${stockHtml}
                 `;
                 itemDiv.onclick = () => agregarAOrden(item);
                 menuItemsContainer.appendChild(itemDiv);
@@ -237,7 +245,13 @@
 
         // Agregar un item a la orden actual
         function agregarAOrden(item) {
-            ordenActual.push(item);
+            // Buscar si el item ya existe en la orden para agruparlo
+            const existingItem = ordenActual.find(i => i.id === item.id);
+            if (existingItem) {
+                existingItem.cantidad++;
+            } else {
+                ordenActual.push({ ...item, cantidad: 1 });
+            }
             renderizarOrden();
         }
 
@@ -249,14 +263,15 @@
 
             ordenActual.forEach((item, index) => {
                 let itemSubtotal, itemIsv, itemTotal;
+                const precioTotalItem = item.precio * item.cantidad;
 
                 if (item.impuesto_incluido) {
-                    itemSubtotal = item.precio / (1 + taxRate);
-                    itemIsv = item.precio - itemSubtotal;
-                    itemTotal = item.precio;
+                    itemSubtotal = precioTotalItem / (1 + taxRate);
+                    itemIsv = precioTotalItem - itemSubtotal;
+                    itemTotal = precioTotalItem;
                 } else {
-                    itemSubtotal = item.precio;
-                    itemIsv = item.precio * taxRate;
+                    itemSubtotal = precioTotalItem;
+                    itemIsv = precioTotalItem * taxRate;
                     itemTotal = itemSubtotal + itemIsv;
                 }
 
@@ -264,12 +279,16 @@
                 isvGeneral += itemIsv;
 
                 const li = document.createElement('li');
+                li.style.alignItems = 'center'; // Alinear verticalmente
                 li.innerHTML = `
-                    <div class="item-details">
-                        <span>${item.nombre}</span>
+                    <div class="item-details" style="flex: 1;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span><strong>${item.cantidad}x</strong> ${item.nombre}</span>
+                            <span>${monedaSymbol} ${itemTotal.toFixed(2)}</span>
+                        </div>
                         <small>Sub: ${itemSubtotal.toFixed(2)} + ISV: ${itemIsv.toFixed(2)}</small>
                     </div>
-                    <span>${monedaSymbol} ${itemTotal.toFixed(2)}</span>
+                    <button class="btn-danger" onclick="eliminarItemOrden(${index})" style="margin-left: 10px; padding: 0; width: 30px; height: 30px; line-height: 30px; text-align: center; border-radius: 4px;">X</button>
                 `;
                 ordenItemsList.appendChild(li);
             });
@@ -279,6 +298,16 @@
             ordenTotalSpan.textContent = `${monedaSymbol} ${totalDeLaOrden.toFixed(2)}`;
         }
 
+        // Función para eliminar o decrementar un item de la orden
+        window.eliminarItemOrden = function(index) {
+            if (ordenActual[index].cantidad > 1) {
+                ordenActual[index].cantidad--;
+            } else {
+                ordenActual.splice(index, 1);
+            }
+            renderizarOrden();
+        };
+
         // Enviar la orden al servidor
         async function enviarOrden() {
             if (ordenActual.length === 0) {
@@ -286,10 +315,19 @@
                 return;
             }
 
+            // Aplanar la orden para el backend (convertir items agrupados a lista individual)
+            const itemsFlat = [];
+            ordenActual.forEach(item => {
+                for (let i = 0; i < item.cantidad; i++) {
+                    const { cantidad, ...itemData } = item; // Excluir propiedad cantidad para enviar limpio
+                    itemsFlat.push(itemData);
+                }
+            });
+
             const response = await fetch('/api/ordenes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: ordenActual })
+                body: JSON.stringify({ items: itemsFlat })
             });
 
             if (!response.ok) {

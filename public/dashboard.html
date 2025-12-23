@@ -110,6 +110,19 @@
             user = await sessionRes.json();
             currentConfig = await configRes.json();
             
+            // INYECTAR TRADUCCIONES PARA INVENTARIO (Parche temporal)
+            if (typeof translations !== 'undefined') {
+                const newKeys = {
+                    es: { inventory_title: 'Inventario', desc_inventory: 'Gestión de stock e ingredientes' },
+                    en: { inventory_title: 'Inventory', desc_inventory: 'Stock and ingredient management' },
+                    fr: { inventory_title: 'Inventaire', desc_inventory: 'Gestion des stocks et ingrédients' },
+                    pt: { inventory_title: 'Inventário', desc_inventory: 'Gestão de estoque e ingredientes' },
+                    ja: { inventory_title: '在庫', desc_inventory: '在庫と材料の管理' },
+                    zh: { inventory_title: '库存', desc_inventory: '库存和配料管理' }
+                };
+                Object.keys(newKeys).forEach(l => { if (translations[l]) Object.assign(translations[l], newKeys[l]); });
+            }
+
             document.getElementById('username-display').textContent = user.username;
 
             // Lógica de renderizado de botones según el rol
@@ -120,6 +133,7 @@
             const buttons = [
                 { href: '/caja.html', title: 'pos_title', desc: 'desc_pos', roles: ['admin', 'caja'] },
                 { href: '/cocina.html', title: 'kitchen_title', desc: 'desc_kitchen', roles: ['admin', 'caja', 'cocina'] },
+                { href: '/inventario.html', title: 'inventory_title', desc: 'desc_inventory', roles: ['admin', 'caja'] },
                 { href: '/admin.html', title: 'admin_title', desc: 'desc_admin', roles: ['admin'] },
                 { href: '/reportes.html', title: 'reports_title', desc: 'desc_reports', roles: ['admin'] }
             ];
