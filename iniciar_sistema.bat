@@ -59,6 +59,12 @@ echo %MSG_START%
 echo %MSG_WARN%
 cd /d "%~dp0"
 echo %MSG_DB%
-node crear_usuarios_db.js
-node actualizar_db.js
-npm start
+
+:: Verificar si existe node.exe localmente (instalación portable)
+set "NODE_CMD=node"
+if exist "%~dp0node.exe" set "NODE_CMD=%~dp0node.exe"
+
+"%NODE_CMD%" crear_usuarios_db.js
+"%NODE_CMD%" actualizar_db.js
+"%NODE_CMD%" server.js
+pause

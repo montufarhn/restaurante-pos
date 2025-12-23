@@ -196,8 +196,12 @@
                     userList.appendChild(li);
                 });
                 // Re-aplicar traducciones a los botones nuevos
-                document.querySelectorAll('.btn-delete-user').forEach(btn => btn.textContent = translations[currentLang]['delete']);
-                document.querySelectorAll('.btn-change-pass').forEach(btn => btn.textContent = translations[currentLang]['change_password']);
+                document.querySelectorAll('.btn-delete-user').forEach(btn => {
+                    if (translations[currentLang]['delete']) btn.textContent = translations[currentLang]['delete'];
+                });
+                document.querySelectorAll('.btn-change-pass').forEach(btn => {
+                    if (translations[currentLang]['change_password']) btn.textContent = translations[currentLang]['change_password'];
+                });
             }
         }
 

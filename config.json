@@ -1,11 +1,10 @@
 {
-  "nombre": "Sazon 1804",
-  "rtn": "0000000000000000",
-  "cai": "000000000000000000000000",
-  "rangoInicio": "01/01/2025",
-  "rangoFin": "01/01/2026",
+  "nombre": "",
+  "rtn": "",
+  "cai": "",
+  "rangoInicio": "",
+  "rangoFin": "",
   "idioma": "es",
   "moneda": "L.",
-  "logo_actual": "blob:http://localhost:3000/2add8279-2c65-416f-80f9-c021a6b93044",
-  "logo": "/uploads/1766434578217.jpg"
+  "logo_actual": ""
 }

@@ -30,6 +30,11 @@
                 <p><strong data-i18n="date">Fecha</strong>: <span id="fecha-factura"></span></p>
             </div>
 
+            <div id="info-cliente" style="margin-bottom: 10px; display: none;">
+                <p><strong>Cliente:</strong> <span id="factura-cliente-nombre"></span></p>
+                <p><strong>RTN:</strong> <span id="factura-cliente-rtn"></span></p>
+            </div>
+
             <hr>
 
             <div class="factura-items">
@@ -123,6 +128,13 @@
             document.getElementById('subtotal').textContent = orden.subtotal.toFixed(2);
             document.getElementById('isv').textContent = orden.isv.toFixed(2);
             document.getElementById('total-pagar').textContent = orden.total.toFixed(2);
+
+            // Datos del Cliente
+            if (orden.cliente_nombre) {
+                document.getElementById('info-cliente').style.display = 'block';
+                document.getElementById('factura-cliente-nombre').textContent = orden.cliente_nombre;
+                document.getElementById('factura-cliente-rtn').textContent = orden.cliente_rtn || 'N/A';
+            }
 
             // Moneda
             const moneda = config.moneda || 'L.';

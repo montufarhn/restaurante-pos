@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Runtime.InteropServices;
 
 namespace RestaurantePOS
 {
@@ -20,14 +22,44 @@ namespace RestaurantePOS
         private Button btnRestart;
         private Button btnExit;
         private ComboBox cbLanguage;
-        private string systemName = "Sazón 1804 POS"; // Nombre por defecto
+        private string systemName = "Xatruch Tech POS"; // Nombre por defecto
+
+        // Variables para control de instancia única
+        private static readonly string MutexName = "RestaurantePOS_SingleInstance_Mutex";
+        private static uint WM_SHOWME;
+        private const int HWND_BROADCAST = 0xFFFF;
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern uint RegisterWindowMessage(string lpString);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool ChangeWindowMessageFilter(uint msg, uint flags);
 
         [STAThread]
         public static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Launcher());
+            WM_SHOWME = RegisterWindowMessage("RESTAURANTE_POS_SHOW_WINDOW");
+            bool createdNew;
+            using (Mutex mutex = new Mutex(true, MutexName, out createdNew))
+            {
+                if (createdNew)
+                {
+                    Application.EnableVisualStyles();
+                    Application.SetCompatibleTextRenderingDefault(false);
+                    Application.Run(new Launcher());
+                }
+                else
+                {
+                    // La instancia ya existe, enviamos mensaje para mostrarla
+                    PostMessage((IntPtr)HWND_BROADCAST, WM_SHOWME, IntPtr.Zero, IntPtr.Zero);
+                }
+            }
         }
 
         public Launcher()
@@ -35,6 +67,10 @@ namespace RestaurantePOS
             // 1. Configuración de la Ventana (GUI)
             // Cargar configuración (nombre del sistema)
             LoadConfig();
+
+            // Permitir que el mensaje WM_SHOWME pase a través del filtro de UIPI (para cuando se ejecuta como admin)
+            // 1 = MSGFLT_ADD
+            try { ChangeWindowMessageFilter(WM_SHOWME, 1); } catch { }
 
             this.Text = "Panel de Control - " + systemName;
             this.Size = new Size(400, 500); // Un poco más alto para acomodar elementos
@@ -204,11 +240,21 @@ namespace RestaurantePOS
             }
         }
 
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == (int)WM_SHOWME)
+            {
+                RestoreWindow();
+            }
+            base.WndProc(ref m);
+        }
+
         private void RestoreWindow()
         {
             this.Show();
             this.WindowState = FormWindowState.Normal;
             this.ShowInTaskbar = true;
+            SetForegroundWindow(this.Handle);
         }
 
         protected override void OnResize(EventArgs e)
@@ -217,7 +263,7 @@ namespace RestaurantePOS
             {
                 this.Hide();
                 this.ShowInTaskbar = false;
-                trayIcon.ShowBalloonTip(2000, "Sazón 1804 POS", "El servidor sigue ejecutándose en segundo plano.", ToolTipIcon.Info);
+                trayIcon.ShowBalloonTip(2000, "Xatruch Tech POS", "El servidor sigue ejecutándose en segundo plano.", ToolTipIcon.Info);
             }
             base.OnResize(e);
         }
@@ -244,8 +290,8 @@ namespace RestaurantePOS
                 startInfo.UseShellExecute = false;
 
                 // Intentar evitar que Node abra el navegador automáticamente
-                startInfo.EnvironmentVariables["BROWSER"] = "none";
-                startInfo.EnvironmentVariables["NO_OPEN"] = "true";
+                // startInfo.EnvironmentVariables["BROWSER"] = "none";
+                // startInfo.EnvironmentVariables["NO_OPEN"] = "true";
 
                 process = Process.Start(startInfo);
                 

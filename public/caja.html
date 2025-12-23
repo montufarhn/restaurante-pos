@@ -29,6 +29,20 @@
                 <ul id="orden-items">
                     <!-- Los items de la orden aparecerán aquí -->
                 </ul>
+                
+                <!-- Panel de Cliente -->
+                <div class="cliente-panel" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px; border: 1px solid #ddd;">
+                    <h3 style="margin-top: 0; font-size: 1em;">Datos del Cliente (Opcional)</h3>
+                    <div style="position: relative; margin-bottom: 10px;">
+                        <input type="text" id="buscar-cliente" placeholder="🔍 Buscar por Nombre o RTN..." style="width: 100%; padding: 8px; box-sizing: border-box;">
+                        <div id="lista-resultados-clientes" style="position: absolute; width: 100%; background: white; border: 1px solid #ddd; z-index: 100; display: none; max-height: 150px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);"></div>
+                    </div>
+                    <input type="hidden" id="cliente-id">
+                    <input type="text" id="cliente-nombre" placeholder="Nombre del Cliente" style="width: 100%; padding: 8px; margin-bottom: 5px; box-sizing: border-box;">
+                    <input type="text" id="cliente-rtn" placeholder="RTN (Opcional)" style="width: 100%; padding: 8px; margin-bottom: 5px; box-sizing: border-box;">
+                    <button id="btn-guardar-cliente" class="btn-secondary" style="width: 100%; font-size: 0.9em; padding: 5px;">Guardar / Actualizar Cliente</button>
+                </div>
+
                 <div class="orden-summary" style="font-size: 1.1em;">
                     <p><span data-i18n="subtotal">Subtotal</span>: <span id="orden-subtotal">0.00</span></p>
                     <p><span id="tax-label" data-i18n="tax">Impuesto</span>: <span id="orden-isv">0.00</span></p>
@@ -118,6 +132,14 @@
         const pagoPanel = document.getElementById('pago-panel');
         const calcularCambioBtn = document.getElementById('calcular-cambio-btn');
         const resultadoCambio = document.getElementById('resultado-cambio');
+        
+        // Elementos de Cliente
+        const inputBuscarCliente = document.getElementById('buscar-cliente');
+        const listaClientes = document.getElementById('lista-resultados-clientes');
+        const inputClienteNombre = document.getElementById('cliente-nombre');
+        const inputClienteRtn = document.getElementById('cliente-rtn');
+        const inputClienteId = document.getElementById('cliente-id');
+        const btnGuardarCliente = document.getElementById('btn-guardar-cliente');
 
         // Elementos del Modal de Admin
         const adminModal = document.getElementById('admin-modal');
@@ -324,10 +346,13 @@
                 }
             });
 
+            const clienteNombre = inputClienteNombre.value.trim();
+            const clienteRtn = inputClienteRtn.value.trim();
+
             const response = await fetch('/api/ordenes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: itemsFlat })
+                body: JSON.stringify({ items: itemsFlat, cliente_nombre: clienteNombre, cliente_rtn: clienteRtn })
             });
 
             if (!response.ok) {
@@ -380,6 +405,79 @@
 
         nuevaOrdenBtn.addEventListener('click', () => {
             location.reload(); // La forma más simple de reiniciar el estado de la caja
+        });
+
+        // --- LÓGICA DE CLIENTES ---
+        
+        // Buscar cliente al escribir
+        let debounceTimer;
+        inputBuscarCliente.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const q = e.target.value;
+            if (q.length < 2) {
+                listaClientes.style.display = 'none';
+                return;
+            }
+            debounceTimer = setTimeout(async () => {
+                const res = await fetch(`/api/clientes?q=${encodeURIComponent(q)}`);
+                const clientes = await res.json();
+                listaClientes.innerHTML = '';
+                if (clientes.length > 0) {
+                    clientes.forEach(c => {
+                        const div = document.createElement('div');
+                        div.style.padding = '8px';
+                        div.style.cursor = 'pointer';
+                        div.style.borderBottom = '1px solid #eee';
+                        div.innerHTML = `<strong>${c.nombre}</strong> <small>(${c.rtn || 'Sin RTN'})</small>`;
+                        div.onmouseover = () => div.style.backgroundColor = '#f0f0f0';
+                        div.onmouseout = () => div.style.backgroundColor = 'white';
+                        div.onclick = () => {
+                            inputClienteId.value = c.id;
+                            inputClienteNombre.value = c.nombre;
+                            inputClienteRtn.value = c.rtn || '';
+                            listaClientes.style.display = 'none';
+                            inputBuscarCliente.value = '';
+                        };
+                        listaClientes.appendChild(div);
+                    });
+                    listaClientes.style.display = 'block';
+                } else {
+                    listaClientes.style.display = 'none';
+                }
+            }, 300);
+        });
+
+        // Guardar o Actualizar Cliente
+        btnGuardarCliente.addEventListener('click', async () => {
+            const id = inputClienteId.value;
+            const nombre = inputClienteNombre.value;
+            const rtn = inputClienteRtn.value;
+
+            if (!nombre) return alert("El nombre es obligatorio.");
+
+            const url = id ? `/api/clientes/${id}` : '/api/clientes';
+            const method = id ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, rtn })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                if (!id && data.id) inputClienteId.value = data.id; // Si era nuevo, guardamos el ID
+                alert(id ? "Cliente actualizado." : "Cliente guardado.");
+            } else {
+                alert("Error al guardar cliente.");
+            }
+        });
+
+        // Cerrar lista de búsqueda si clic fuera
+        document.addEventListener('click', (e) => {
+            if (!inputBuscarCliente.contains(e.target) && !listaClientes.contains(e.target)) {
+                listaClientes.style.display = 'none';
+            }
         });
 
         // Cargar todo al iniciar

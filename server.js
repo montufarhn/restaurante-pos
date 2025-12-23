@@ -138,7 +138,7 @@ function loadConfig() {
             restaurantConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
         } else {
             restaurantConfig = {
-                nombre: "Sazon 1804",
+                nombre: "",
                 rtn: "",
                 cai: "",
                 rangoInicio: "",
@@ -156,7 +156,7 @@ function loadConfig() {
 loadConfig(); // Cargar la configuración al iniciar
 
 // --- Conexión a la Base de Datos de Usuarios ---
-const userDb = new sqlite3.Database('./usuarios.db', (err) => {
+const userDb = new sqlite3.Database(path.join(__dirname, 'usuarios.db'), (err) => {
     if (err) {
         console.error("Error al abrir la base de datos de usuarios", err.message);
     } else {
@@ -165,7 +165,7 @@ const userDb = new sqlite3.Database('./usuarios.db', (err) => {
 });
 
 // --- Conexión a la Base de Datos SQLite ---
-const db = new sqlite3.Database('./restaurante.db', (err) => {
+const db = new sqlite3.Database(path.join(__dirname, 'restaurante.db'), (err) => {
     if (err) {
         console.error(t.db_error, err.message);
     } else {
@@ -201,6 +201,23 @@ const db = new sqlite3.Database('./restaurante.db', (err) => {
                 }
             });
 
+            // Verificar y añadir columnas faltantes a 'ordenes' (cliente_nombre, cliente_rtn)
+            db.all("PRAGMA table_info(ordenes)", (err, columns) => {
+                if (err) return console.error("Error al leer la información de la tabla 'ordenes'", err.message);
+                
+                const colNames = columns.map(col => col.name);
+
+                if (!colNames.includes('cliente_nombre')) {
+                    console.log("Actualizando DB: Añadiendo columna 'cliente_nombre' a ordenes...");
+                    db.run("ALTER TABLE ordenes ADD COLUMN cliente_nombre TEXT");
+                }
+
+                if (!colNames.includes('cliente_rtn')) {
+                    console.log("Actualizando DB: Añadiendo columna 'cliente_rtn' a ordenes...");
+                    db.run("ALTER TABLE ordenes ADD COLUMN cliente_rtn TEXT");
+                }
+            });
+
             // Crear tabla de órdenes
             db.run(`CREATE TABLE IF NOT EXISTS ordenes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,7 +225,9 @@ const db = new sqlite3.Database('./restaurante.db', (err) => {
                 isv REAL NOT NULL,
                 total REAL NOT NULL,
                 fecha TEXT NOT NULL,
-                estado TEXT NOT NULL
+                estado TEXT NOT NULL,
+                cliente_nombre TEXT,
+                cliente_rtn TEXT
             )`);
 
             // Crear tabla de items de la orden
@@ -228,6 +247,13 @@ const db = new sqlite3.Database('./restaurante.db', (err) => {
                 cantidad REAL DEFAULT 0,
                 unidad TEXT DEFAULT 'unidades',
                 minimo REAL DEFAULT 5
+            )`);
+
+            // Crear tabla de clientes
+            db.run(`CREATE TABLE IF NOT EXISTS clientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                rtn TEXT
             )`);
 
             db.get("SELECT COUNT(*) as count FROM menu", (err, row) => {
@@ -498,6 +524,37 @@ app.delete('/api/inventario/:id', checkAuth, checkRole(['admin']), (req, res) =>
     });
 });
 
+// --- Endpoints de Clientes ---
+
+// Buscar clientes
+app.get('/api/clientes', checkAuth, (req, res) => {
+    const q = req.query.q;
+    if (!q) return res.json([]);
+    // Buscar por nombre o RTN
+    db.all("SELECT * FROM clientes WHERE nombre LIKE ? OR rtn LIKE ? LIMIT 5", [`%${q}%`, `%${q}%`], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+// Crear cliente
+app.post('/api/clientes', checkAuth, (req, res) => {
+    const { nombre, rtn } = req.body;
+    db.run("INSERT INTO clientes (nombre, rtn) VALUES (?, ?)", [nombre, rtn], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ id: this.lastID, nombre, rtn });
+    });
+});
+
+// Actualizar cliente
+app.put('/api/clientes/:id', checkAuth, (req, res) => {
+    const { nombre, rtn } = req.body;
+    db.run("UPDATE clientes SET nombre = ?, rtn = ? WHERE id = ?", [nombre, rtn, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "Cliente actualizado" });
+    });
+});
+
 // Endpoint para crear una nueva orden
 app.post('/api/ordenes', checkAuth, checkRole(['admin', 'caja']), (req, res) => {
     db.serialize(() => {
@@ -523,8 +580,11 @@ app.post('/api/ordenes', checkAuth, checkRole(['admin', 'caja']), (req, res) => 
 
         db.run('BEGIN TRANSACTION');
 
-        const sqlOrden = `INSERT INTO ordenes (subtotal, isv, total, fecha, estado) VALUES (?, ?, ?, ?, ?)`;
-        db.run(sqlOrden, [granSubtotal, granIsv, granTotal, fecha, estado], function (err) {
+        const cliente_nombre = req.body.cliente_nombre || null;
+        const cliente_rtn = req.body.cliente_rtn || null;
+
+        const sqlOrden = `INSERT INTO ordenes (subtotal, isv, total, fecha, estado, cliente_nombre, cliente_rtn) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+        db.run(sqlOrden, [granSubtotal, granIsv, granTotal, fecha, estado, cliente_nombre, cliente_rtn], function (err) {
             if (err) {
                 db.run('ROLLBACK');
                 return res.status(500).json({ error: err.message });
@@ -548,7 +608,7 @@ app.post('/api/ordenes', checkAuth, checkRole(['admin', 'caja']), (req, res) => 
                 if (err) {
                      return res.status(500).json({ error: err.message });
                 }
-                const nuevaOrdenCompleta = { id: ordenId, items: req.body.items, subtotal: granSubtotal, isv: granIsv, total: granTotal, fecha, estado };
+                const nuevaOrdenCompleta = { id: ordenId, items: req.body.items, subtotal: granSubtotal, isv: granIsv, total: granTotal, fecha, estado, cliente_nombre, cliente_rtn };
                 console.log(`Nueva orden recibida #${ordenId}`);
                 io.emit('nueva_orden', nuevaOrdenCompleta);
                 // Notificar a las cajas para que actualicen el stock visualmente
