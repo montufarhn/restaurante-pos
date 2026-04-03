@@ -1,24 +1,51 @@
 {
   "name": "restaurante-pos",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sistema POS seguro y eficiente para restaurantes pequeños y medianos",
   "main": "server.js",
   "scripts": {
+    "start": "node server.js",
+    "dev": "cross-env NODE_ENV=development node server.js",
+    "prod": "cross-env NODE_ENV=production node server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "setup": "node crear_usuarios_db.js",
+    "migrate": "node actualizar_db.js",
+    "postinstall": "echo 'Instalación completada'"
   },
-  "keywords": [],
+  "keywords": [
+    "pos",
+    "restaurante",
+    "ventas",
+    "inventario"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
   "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.3.1",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
+    "express-validator": "^7.0.0",
+    "helmet": "^7.1.0",
     "multer": "^1.4.5-lts.1",
     "open": "^8.4.2",
+    "pg": "^8.11.3",
     "socket.io": "^4.7.5",
     "sqlite3": "^5.1.7"
-  }
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "optionalDependencies": {}
 }

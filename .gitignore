@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Database files (local development)
+*.db
+*.sqlite
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Build outputs
+dist/
+build/
+Output/
+out/
+
+# Logs
+logs/
+*.log
+
+# User uploads (can be large)
+public/uploads/*
+!public/uploads/.gitkeep
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Android build artifacts
+android/build/
+android/.gradle/
+android/local.properties
+
+# Keys and secrets
+android\ studio\ keys/
+*.key
+*.keystore
+secret.* 
+credentials.*
+
+# IDE files
+*.iml
+.gradle/
+local.properties
+
+# Mac OS
+.AppleDouble
+.LSOverride
+
+# Windows
+*.exe
+node.exe
+
+# Restore/Backup files
+*.bak
+*.backup
+
+# Generated files
+.capacitor/
+.cache/

@@ -98,7 +98,26 @@ const translations = {
         login_button: "Ingresar",
         login_error: "Usuario o contraseña incorrectos",
         actions: "Acciones",
-        view_invoice: "Ver Factura"
+        view_invoice: "Ver Factura",
+        role: "Rol",
+        role_admin: "Administrador",
+        role_cashier: "Cajero",
+        role_kitchen: "Cocina",
+        user_management: "Gestión de Usuarios",
+        username: "Usuario",
+        password: "Contraseña",
+        create_user: "Crear Usuario",
+        user_list: "Lista de Usuarios",
+        change_password: "Cambiar Contraseña",
+        alert_user_created: "Usuario creado con éxito",
+        alert_user_deleted: "Usuario eliminado",
+        alert_user_error: "Error al gestionar usuario",
+        confirm_delete_user: "¿Estás seguro de eliminar este usuario?",
+        new_password_prompt: "Ingresa la nueva contraseña:",
+        alert_password_changed: "Contraseña actualizada",
+        alert_password_error: "Error al cambiar contraseña",
+        edit_user: "Editar Usuario",
+        back: "Atrás"
     },
     en: {
         system_title: "POS System",
@@ -199,7 +218,26 @@ const translations = {
         login_button: "Sign In",
         login_error: "Incorrect username or password",
         actions: "Actions",
-        view_invoice: "View Invoice"
+        view_invoice: "View Invoice",
+        role: "Role",
+        role_admin: "Administrator",
+        role_cashier: "Cashier",
+        role_kitchen: "Kitchen",
+        user_management: "User Management",
+        username: "Username",
+        password: "Password",
+        create_user: "Create User",
+        user_list: "User List",
+        change_password: "Change Password",
+        alert_user_created: "User created successfully",
+        alert_user_deleted: "User deleted",
+        alert_user_error: "Error managing user",
+        confirm_delete_user: "Are you sure you want to delete this user?",
+        new_password_prompt: "Enter the new password:",
+        alert_password_changed: "Password updated",
+        alert_password_error: "Error changing password",
+        edit_user: "Edit User",
+        back: "Back"
     },
     fr: {
         system_title: "Système POS",
@@ -299,7 +337,8 @@ const translations = {
         login_button: "Se connecter",
         login_error: "Nom d'utilisateur ou mot de passe incorrect",
         actions: "Actions",
-        view_invoice: "Voir Facture"
+        view_invoice: "Voir Facture",
+        back: "Retour"
     },
     pt: {
         system_title: "Sistema POS",
@@ -399,7 +438,8 @@ const translations = {
         login_button: "Entrar",
         login_error: "Nome de utilizador ou palavra-passe incorretos",
         actions: "Ações",
-        view_invoice: "Ver Fatura"
+        view_invoice: "Ver Fatura",
+        back: "Voltar"
     },
     ja: {
         system_title: "POSシステム",
@@ -499,7 +539,8 @@ const translations = {
         login_button: "ログイン",
         login_error: "ユーザー名またはパスワードが正しくありません",
         actions: "アクション",
-        view_invoice: "請求書を見る"
+        view_invoice: "請求書を見る",
+        back: "戻る"
     },
     zh: {
         system_title: "POS系统",
@@ -599,6 +640,7 @@ const translations = {
         login_button: "登录",
         login_error: "用户名或密码不正确",
         actions: "操作",
-        view_invoice: "查看发票"
+        view_invoice: "查看发票",
+        back: "返回"
     }
 };

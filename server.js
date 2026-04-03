@@ -1,4 +1,7 @@
 // server.js
+// ⚠️  IMPORTANTE: Copiar .env.example a .env y configurar antes de ejecutar
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
@@ -10,13 +13,34 @@ const open = require('open');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
+const helmet = require('helmet');
+const { Pool } = require('pg');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    cors: {
+        origin: process.env.CORS_ORIGIN || '*',
+        credentials: true
+    }
+});
 
-const PORT = 3000;
-const saltRounds = 10;
+// ⚠️  CONFIGURACIÓN CRÍTICA: Usar variables de entorno
+const PORT = process.env.PORT || 3000;
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const saltRounds = parseInt(process.env.SALT_ROUNDS || '10', 10);
+const SESSION_SECRET = process.env.SESSION_SECRET;
+const SESSION_TIMEOUT = (parseInt(process.env.SESSION_TIMEOUT_HOURS) || 8) * 60 * 60 * 1000;
+const DATABASE_URL = process.env.DATABASE_URL;
+
+// Validar variables de entorno críticas
+if (!SESSION_SECRET || SESSION_SECRET === 'your-super-secret-session-string-change-this-in-production') {
+    const error = '⚠️  ERROR CRÍTICO: SESSION_SECRET no está configurado. Por favor, edita .env';
+    console.error(error);
+    if (NODE_ENV === 'production') {
+        process.exit(1);
+    }
+}
 
 // --- Configuración de Idioma para Consola ---
 const lang = process.env.LANG_SHORT || 'en';
@@ -164,24 +188,94 @@ const userDb = new sqlite3.Database(path.join(__dirname, 'usuarios.db'), (err) =
     }
 });
 
-// --- Conexión a la Base de Datos SQLite ---
-const db = new sqlite3.Database(path.join(__dirname, 'restaurante.db'), (err) => {
-    if (err) {
-        console.error(t.db_error, err.message);
-    } else {
-        console.log(t.db_connected);
-        // Serializar las operaciones para asegurar el orden de ejecución
-        db.serialize(() => {
+// --- Configuración de Base de Datos (SQLite o PostgreSQL) ---
+let db;
+const isPostgres = !!DATABASE_URL;
+
+if (isPostgres) {
+    // Configuración para Supabase / PostgreSQL
+    const pool = new Pool({
+        connectionString: DATABASE_URL,
+        ssl: { rejectUnauthorized: false } // Requerido para Render/Supabase
+    });
+    
+    // Wrapper para mantener compatibilidad con la sintaxis de sqlite3 usada en el código
+    db = {
+        all: (sql, params, callback) => {
+            const pgSql = sql.replace(/\?/g, (_, i) => `$${sql.split('?').slice(0, i+1).length - 1}`);
+            pool.query(pgSql, params)
+                .then(res => callback(null, res.rows))
+                .catch(err => callback(err));
+        },
+        get: (sql, params, callback) => {
+            const pgSql = sql.replace(/\?/g, (_, i) => `$${sql.split('?').slice(0, i+1).length - 1}`);
+            pool.query(pgSql, params)
+                .then(res => callback(null, res.rows[0]))
+                .catch(err => callback(err));
+        },
+        run: function(sql, params, callback) {
+            const pgSql = sql.replace(/\?/g, (_, i) => `$${sql.split('?').slice(0, i+1).length - 1}`);
+            // Para INSERT, necesitamos RETURNING id para emular this.lastID
+            const finalSql = (sql.trim().toUpperCase().startsWith('INSERT')) ? `${pgSql} RETURNING id` : pgSql;
+            
+            pool.query(finalSql, params)
+                .then(res => {
+                    const result = { lastID: res.rows[0]?.id, changes: res.rowCount };
+                    if (callback) callback.call(result, null);
+                })
+                .catch(err => {
+                    if (callback) callback(err);
+                });
+        },
+        serialize: (fn) => fn() // Postgres maneja concurrencia diferente, no requiere serialize
+    };
+    userDb = db; // En producción usamos la misma base de datos para todo
+    console.log("Conectado a PostgreSQL (Supabase)");
+} else {
+    // Configuración para SQLite (Local)
+    const sqliteDb = new sqlite3.Database(path.join(__dirname, 'restaurante.db'), (err) => {
+        if (err) console.error(t.db_error, err.message);
+        else console.log(t.db_connected);
+    });
+
+    db = {
+        all: (sql, params, cb) => sqliteDb.all(sql, params, cb),
+        get: (sql, params, cb) => sqliteDb.get(sql, params, cb),
+        run: function(sql, params, cb) {
+            sqliteDb.run(sql, params, function(err) {
+                if (cb) cb.call(this, err);
+            });
+        },
+        serialize: (fn) => sqliteDb.serialize(fn)
+    };
+
+    // Base de datos de usuarios independiente en local
+    userDb = new sqlite3.Database(path.join(__dirname, 'usuarios.db'), (err) => {
+        if (err) console.error("Error al abrir la base de datos de usuarios", err.message);
+        else console.log("Conectado a la base de datos de usuarios (Local).");
+    });
+}
+
+// --- Inicialización de Tablas ---
+db.serialize(() => {
+    // Solo ejecutamos migraciones automáticas en SQLite.
+    // En Supabase se recomienda usar el SQL Editor (ver DEPLOYMENT.md)
+    if (!isPostgres) {
+        // Obtener la instancia real de sqlite3 para las operaciones de tabla
+        const sqliteInstance = new sqlite3.Database(path.join(__dirname, 'restaurante.db'));
+        
+        sqliteInstance.serialize(() => {
             // Crear la tabla si no existe
-            db.run(`CREATE TABLE IF NOT EXISTS menu (
+            sqliteInstance.run(`CREATE TABLE IF NOT EXISTS menu (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nombre TEXT NOT NULL,
                 precio REAL NOT NULL,
                 categoria TEXT NOT NULL,
                 impuesto_incluido INTEGER DEFAULT 1 NOT NULL,
                 imagen TEXT
-            )`, (err) => {
+            )`, function(err) {
                 if (err) return console.error("Error al crear la tabla 'menu'", err.message);
+                console.log("Tabla 'menu' verificada.");
             });
 
             // Verificar y añadir columnas faltantes a 'menu' (impuesto_incluido, imagen)
@@ -218,14 +312,13 @@ const db = new sqlite3.Database(path.join(__dirname, 'restaurante.db'), (err) =>
                 }
             });
 
-            // Crear tabla de órdenes
-            db.run(`CREATE TABLE IF NOT EXISTS ordenes (
+            sqliteInstance.run(`CREATE TABLE IF NOT EXISTS ordenes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 subtotal REAL NOT NULL,
                 isv REAL NOT NULL,
                 total REAL NOT NULL,
                 fecha TEXT NOT NULL,
-                estado TEXT NOT NULL,
+                estado TEXT NOT NULL DEFAULT 'Pendiente',
                 cliente_nombre TEXT,
                 cliente_rtn TEXT
             )`);
@@ -240,40 +333,49 @@ const db = new sqlite3.Database(path.join(__dirname, 'restaurante.db'), (err) =>
                 FOREIGN KEY (orden_id) REFERENCES ordenes(id)
             )`);
 
-            // Crear tabla de inventario
-            db.run(`CREATE TABLE IF NOT EXISTS inventario (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT NOT NULL,
-                cantidad REAL DEFAULT 0,
-                unidad TEXT DEFAULT 'unidades',
-                minimo REAL DEFAULT 5
-            )`);
-
-            // Crear tabla de clientes
-            db.run(`CREATE TABLE IF NOT EXISTS clientes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT NOT NULL,
-                rtn TEXT
-            )`);
-
-            db.get("SELECT COUNT(*) as count FROM menu", (err, row) => {
-                // (Código para poblar el menú si está vacío, sin cambios)
-            });
+            sqliteInstance.close();
         });
     }
 });
 
 // --- Configuración de Sesiones ---
 app.use(cookieParser());
+
+// Confiar en el proxy de Render para cookies seguras
+if (NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
 app.use(session({
-    secret: 'un-secreto-muy-secreto-para-las-sesiones', // Cambia esto por una cadena aleatoria
+    secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 8 * 60 * 60 * 1000 } // 8 horas
+    cookie: { 
+        maxAge: SESSION_TIMEOUT,
+        httpOnly: true,
+        secure: NODE_ENV === 'production', // ✅ Solo HTTPS/SSL en prod
+        sameSite: 'strict' // ✅ CSRF protection
+    }
 }));
 
 // --- Configuración del Servidor ---
-app.use(express.json()); // Permitir que el servidor entienda JSON
+// ✅ Agregar headers de seguridad
+app.use(helmet());
+
+// ✅ Limitar tamaño de request
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// ✅ Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    if (NODE_ENV === 'production') {
+        // No revelar detalles de errores en producción
+        res.status(500).json({ error: 'Error interno del servidor' });
+    } else {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // --- Middleware de Autenticación ---
 const checkAuth = (req, res, next) => {
@@ -303,14 +405,37 @@ const checkRole = (roles) => {
 // Endpoint de Login
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    
+    // ✅ Validar entrada
+    if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
+        return res.status(400).json({ message: 'Usuario y contraseña son requeridos' });
+    }
+    
+    // ✅ Limitar longitud para prevenir DoS
+    if (username.length > 100 || password.length > 200) {
+        return res.status(400).json({ message: 'Datos inválidos' });
+    }
+
     userDb.get('SELECT * FROM usuarios WHERE username = ?', [username], (err, user) => {
+        // ✅ Error genérico para no revelar si el usuario existe
         if (err || !user) {
             return res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
         }
+        
         bcrypt.compare(password, user.password, (err, result) => {
+            if (err) {
+                console.error('Error en bcrypt:', err);
+                return res.status(500).json({ message: 'Error en servidor' });
+            }
+            
             if (result) {
-                req.session.user = { id: user.id, username: user.username, role: user.role };
-                res.status(200).json({ message: 'Login exitoso' });
+                // ✅ No guardar información sensible en sesión
+                req.session.user = { 
+                    id: user.id, 
+                    username: user.username, 
+                    role: user.role 
+                };
+                res.status(200).json({ message: 'Login exitoso', username: user.username, role: user.role });
             } else {
                 res.status(401).json({ message: 'Usuario o contraseña incorrectos' });
             }
@@ -337,17 +462,75 @@ app.get('/api/users', checkAuth, checkRole(['admin']), (req, res) => {
     });
 });
 
-// Endpoint para CREAR un usuario
+// Endpoint para CRIAR un usuario
 app.post('/api/users', checkAuth, checkRole(['admin']), (req, res) => {
     const { username, password, role } = req.body;
-    if (!username || !password || !role) return res.status(400).json({ error: "Faltan datos" });
+    
+    // ✅ Validación de entrada
+    if (!username || !password || !role) {
+        return res.status(400).json({ error: "Faltan datos requeridos" });
+    }
+    
+    // ✅ Validar tipos
+    if (typeof username !== 'string' || typeof password !== 'string' || typeof role !== 'string') {
+        return res.status(400).json({ error: "Datos inválidos" });
+    }
+    
+    // ✅ Validar longitud
+    if (username.length < 3 || username.length > 100) {
+        return res.status(400).json({ error: "Username debe tener 3-100 caracteres" });
+    }
+    
+    if (password.length < 6 || password.length > 200) {
+        return res.status(400).json({ error: "Password debe tener 6-200 caracteres" });
+    }
+    
+    // ✅ Validar rol permitido
+    if (!['admin', 'caja', 'cocina'].includes(role)) {
+        return res.status(400).json({ error: "Rol inválido" });
+    }
 
     bcrypt.hash(password, saltRounds, (err, hash) => {
+        if (err) {
+            console.error('Bcrypt error:', err);
+            return res.status(500).json({ error: "Error al procesar contraseña" });
+        }
+        
+        userDb.run(
+            "INSERT INTO usuarios (username, password, role) VALUES (?, ?, ?)", 
+            [username, hash, role], 
+            function(err) {
+                if (err) {
+                    // ✅ Manejar error de username duplicado
+                    if (err.message.includes('UNIQUE')) {
+                        return res.status(400).json({ error: "Usuario ya existe" });
+                    }
+                    console.error('DB error:', err);
+                    return res.status(500).json({ error: "Error al crear usuario" });
+                }
+                
+                res.status(201).json({ 
+                    id: this.lastID, 
+                    username, 
+                    role,
+                    message: "Usuario creado exitosamente" 
+                });
+            }
+        );
+    });
+});
+
+// Endpoint para EDITAR un usuario (Nombre y Rol)
+app.put('/api/users/:id', checkAuth, checkRole(['admin']), (req, res) => {
+    const id = parseInt(req.params.id);
+    const { username, role } = req.body;
+
+    if (!username || !role) return res.status(400).json({ error: "Faltan datos (username o role)" });
+
+    userDb.run("UPDATE usuarios SET username = ?, role = ? WHERE id = ?", [username, role, id], function(err) {
         if (err) return res.status(500).json({ error: err.message });
-        userDb.run("INSERT INTO usuarios (username, password, role) VALUES (?, ?, ?)", [username, hash, role], function(err) {
-            if (err) return res.status(400).json({ error: err.message });
-            res.status(201).json({ id: this.lastID, username, role });
-        });
+        if (this.changes === 0) return res.status(404).json({ error: "Usuario no encontrado" });
+        res.status(200).json({ message: "Usuario actualizado" });
     });
 });
 
@@ -424,20 +607,47 @@ app.post('/api/config', checkAuth, checkRole(['admin']), upload.single('logo'), 
 // Endpoint para AÑADIR un nuevo item al menú
 app.post('/api/menu', checkAuth, checkRole(['admin']), upload.single('imagen'), (req, res) => {
     const { nombre, categoria } = req.body;
-    const precio = parseFloat(req.body.precio);
-    const impuesto_incluido = req.body.impuesto_incluido === 'true' ? 1 : 0;
     
+    // ✅ Validación de entrada
+    if (!nombre || !categoria) {
+        return res.status(400).json({ error: "Nombre y categoría son requeridos" });
+    }
+    
+    // ✅ Validar tipos
+    const precio = parseFloat(req.body.precio);
+    if (isNaN(precio) || precio < 0 ){
+        return res.status(400).json({ error: "Precio inválido" });
+    }
+    
+    if (typeof nombre !== 'string' || nombre.length > 255) {
+        return res.status(400).json({ error: "Nombre inválido" });
+    }
+    
+    if (!['Platillo', 'Bebida'].includes(categoria)) {
+        return res.status(400).json({ error: "Categoría inválida" });
+    }
+    
+    const impuesto_incluido = req.body.impuesto_incluido === 'true' ? 1 : 0;
     const imagen = req.file ? '/uploads/' + req.file.filename : null;
 
     const sql = "INSERT INTO menu (nombre, precio, categoria, impuesto_incluido, imagen) VALUES (?, ?, ?, ?, ?)";
     db.run(sql, [nombre, precio, categoria, impuesto_incluido, imagen], function(err) {
         if (err) {
-            res.status(400).json({ "error": err.message });
+            console.error('DB error:', err);
+            res.status(500).json({ error: "Error al crear item" });
             return;
         }
+        
         io.emit('menu_actualizado');
         console.log(`Nuevo item añadido al menú: ${nombre}`);
-        res.status(201).json({ id: this.lastID, nombre, precio, categoria, impuesto_incluido, imagen });
+        res.status(201).json({ 
+            id: this.lastID, 
+            nombre, 
+            precio, 
+            categoria, 
+            impuesto_incluido, 
+            imagen 
+        });
     });
 });
 
@@ -776,16 +986,31 @@ app.use(express.static('public'));
 
 // --- Lógica de Socket.IO ---
 io.on('connection', (socket) => {
+    // ✅ Validar que el usuario está autenticado
+    const sessionId = socket.handshake?.headers?.cookie;
+    if (!sessionId) {
+        console.warn('Socket rechazado: sin sesión válida');
+        socket.disconnect();
+        return;
+    }
+    
     console.log(t.user_connected);
 
     // Cuando la cocina marca una orden como lista
     socket.on('orden_lista', (ordenId) => {
+        // ✅ Validar entrada
+        const id = parseInt(ordenId, 10);
+        if (!id || isNaN(id)) {
+            console.error('Datos inválidos en orden_lista');
+            return;
+        }
+        
         const sql = `UPDATE ordenes SET estado = 'Lista' WHERE id = ?`;
-        db.run(sql, [ordenId], function (err) {
+        db.run(sql, [id], function (err) {
             if (err) return console.error(err.message);
             if (this.changes > 0) {
-                io.emit('actualizar_estado_orden', { id: ordenId, estado: 'Lista' });
-                console.log(`Orden #${ordenId} marcada como lista.`);
+                io.emit('actualizar_estado_orden', { id: id, estado: 'Lista' });
+                console.log(`Orden #${id} marcada como lista.`);
             }
         });
     });

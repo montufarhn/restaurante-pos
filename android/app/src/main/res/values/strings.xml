@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">XatruchPOS</string>
+    <string name="title_activity_main">XatruchPOS</string>
+    <string name="package_name">com.xatruchpos.xatruchtech</string>
+    <string name="custom_url_scheme">com.xatruchpos.xatruchtech</string>
+</resources>

@@ -1,0 +1,88 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema POS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <main class="login-container">
+            <div class="login-box">
+                <img id="restaurante-logo" src="" alt="Logo" style="max-width: 150px; margin-bottom: 20px; display: none;">
+                <h2 id="titulo-principal" data-i18n="login_title">Iniciar Sesión</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username" data-i18n="username">Usuario</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password" data-i18n="password">Contraseña</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn-success" style="width: 100%;" data-i18n="login_button">Ingresar</button>
+                </form>
+                <p id="error-message" style="color: #e74c3c; text-align: center; margin-top: 15px;"></p>
+            </div>
+        </main>
+    </div>
+
+    <script src="locales.js"></script>
+    <script src="sqlite-service.js"></script>
+    <script src="api-proxy.js"></script>
+    <script src="app.js"></script>
+    <script>
+        let currentLang = 'es';
+
+        async function cargarConfiguracion() {
+            try {
+                const config = await API.getConfig();
+                currentLang = config.idioma || 'es';
+
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (translations[currentLang] && translations[currentLang][key]) {
+                        el.textContent = translations[currentLang][key];
+                    }
+                });
+
+                if (config.nombre) {
+                    document.title = `${config.nombre} - ${translations[currentLang]['login_title']}`;
+                }
+                if (config.logo) {
+                    const logoImg = document.getElementById('restaurante-logo');
+                    logoImg.src = config.logo;
+                    logoImg.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error al cargar la configuración:', error);
+            }
+        }
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const password = e.target.password.value;
+            const errorMessage = document.getElementById('error-message');
+            errorMessage.textContent = '';
+
+            try {
+                const user = await API.login(username, password);
+                App.user = user;
+                App.goToDashboard();
+            } catch (err) {
+                errorMessage.textContent = translations[currentLang]['login_error'] || 'Usuario o contraseña incorrectos';
+                console.error('Error de login:', err);
+            }
+        });
+
+        // Inicializar app cuando esté listo
+        window.addEventListener('DOMContentLoaded', async () => {
+            await API.init();
+            await cargarConfiguracion();
+        });
+    </script>
+</body>
+</html>

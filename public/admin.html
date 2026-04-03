@@ -86,13 +86,14 @@
         <div class="admin-panel" style="margin-top: 20px;">
             <h2 data-i18n="user_management">Gestión de Usuarios</h2>
             <form id="form-user">
+                <input type="hidden" id="edit-user-id">
                 <div class="form-group">
                     <label for="new-username" data-i18n="username">Usuario:</label>
                     <input type="text" id="new-username" required>
                 </div>
-                <div class="form-group">
+                <div id="password-group" class="form-group">
                     <label for="new-password" data-i18n="password">Contraseña:</label>
-                    <input type="password" id="new-password" required>
+                    <input type="password" id="new-password">
                 </div>
                 <div class="form-group">
                     <label for="new-role" data-i18n="role">Rol:</label>
@@ -102,7 +103,8 @@
                         <option value="cocina" data-i18n="role_kitchen">Cocina</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-success" data-i18n="create_user">Crear Usuario</button>
+                <button type="submit" id="btn-user-submit" class="btn-success" data-i18n="create_user">Crear Usuario</button>
+                <button type="button" id="btn-user-cancel" class="btn-secondary hidden" data-i18n="cancel">Cancelar</button>
             </form>
             
             <h3 data-i18n="user_list" style="margin-top: 20px;">Lista de Usuarios</h3>
@@ -111,158 +113,194 @@
     </div>
 
     <script src="locales.js"></script>
+    <script src="sqlite-service.js"></script>
+    <script src="api-proxy.js"></script>
+    <script src="app.js"></script>
     <script>
         const formConfig = document.getElementById('form-config');
         const formUser = document.getElementById('form-user');
         const userList = document.getElementById('user-list');
         const logoInput = document.getElementById('logo');
         const logoPreview = document.getElementById('logo-preview');
+        const editUserIdInput = document.getElementById('edit-user-id');
+        const btnUserSubmit = document.getElementById('btn-user-submit');
+        const btnUserCancel = document.getElementById('btn-user-cancel');
+        const passwordGroup = document.getElementById('password-group');
         let currentLang = 'es';
+        let allUsers = [];
 
         // Lógica de Logout
         document.getElementById('btn-logout').addEventListener('click', async () => {
-            await fetch('/api/logout', { method: 'POST' });
-            window.location.href = '/';
+            await App.logout();
         });
 
         // Cargar la configuración actual al abrir la página
         async function cargarConfiguracion() {
-            const response = await fetch('/api/config');
-            const config = await response.json();
-            currentLang = config.idioma || 'es';
+            try {
+                await API.init();
+                const config = await API.getConfig();
+                currentLang = config.idioma || 'es';
 
-            document.getElementById('nombre').value = config.nombre || '';
-            document.getElementById('rtn').value = config.rtn || '';
-            document.getElementById('cai').value = config.cai || '';
-            document.getElementById('rangoInicio').value = config.rangoInicio || '';
-            document.getElementById('rangoFin').value = config.rangoFin || '';
-            document.getElementById('idioma').value = config.idioma || 'es';
-            document.getElementById('moneda').value = config.moneda || 'L.';
+                document.getElementById('nombre').value = config.nombre || '';
+                document.getElementById('rtn').value = config.rtn || '';
+                document.getElementById('cai').value = config.cai || '';
+                document.getElementById('rangoInicio').value = config.rangoInicio || '';
+                document.getElementById('rangoFin').value = config.rangoFin || '';
+                document.getElementById('idioma').value = config.idioma || 'es';
+                document.getElementById('moneda').value = config.moneda || 'L.';
 
-            const lang = config.idioma || 'es';
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (translations[lang][key]) {
-                    el.textContent = translations[lang][key];
+                const lang = config.idioma || 'es';
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (translations[lang][key]) {
+                        el.textContent = translations[lang][key];
+                    }
+                });
+
+                if (config.logo) {
+                    logoPreview.src = config.logo;
+                    logoPreview.style.display = 'block';
                 }
-            });
-            
-            if (config.logo) {
-                logoPreview.src = config.logo;
-                logoPreview.style.display = 'block';
+                cargarUsuarios();
+            } catch (e) {
+                console.error('Error al cargar config:', e);
             }
-            cargarUsuarios();
         }
 
         // Manejar el envío del formulario para guardar la configuración
         formConfig.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Usamos FormData para poder enviar el archivo del logo
-            const formData = new FormData(formConfig);
+            const updates = {
+                nombre: document.getElementById('nombre').value,
+                rtn: document.getElementById('rtn').value,
+                cai: document.getElementById('cai').value,
+                rangoInicio: document.getElementById('rangoInicio').value,
+                rangoFin: document.getElementById('rangoFin').value,
+                idioma: document.getElementById('idioma').value,
+                moneda: document.getElementById('moneda').value,
+                logo: logoPreview.src // Guardar la base64 del preview
+            };
 
-            // Añadimos la ruta del logo actual por si no se sube uno nuevo
-            formData.append('logo_actual', logoPreview.src);
-
-            const response = await fetch('/api/config', {
-                method: 'POST',
-                body: formData 
-            });
-
-            if (response.ok) {
+            try {
+                const logoFile = logoInput.files[0];
+                await API.saveConfig(updates, logoFile);
                 alert(translations[currentLang]['alert_config_saved']);
-                cargarConfiguracion(); // Recargar para mostrar los cambios
-            } else {
+                cargarConfiguracion();
+            } catch (err) {
                 alert(translations[currentLang]['alert_config_error']);
             }
         });
 
         // Cargar lista de usuarios
         async function cargarUsuarios() {
-            const response = await fetch('/api/users');
-            if (response.ok) {
-                const users = await response.json();
+            try {
+                allUsers = await API.getUsers();
                 userList.innerHTML = '';
-                users.forEach(user => {
+                allUsers.forEach(user => {
                     const li = document.createElement('li');
                     li.className = 'admin-menu-item';
+                    const roleKey = `role_${user.role === 'caja' ? 'cashier' : user.role}`;
+                    const roleText = (translations[currentLang] && translations[currentLang][roleKey]) || user.role;
                     li.innerHTML = `
-                        <span><strong>${user.username}</strong> (${user.role})</span>
+                        <span><strong>${user.username}</strong> (${roleText})</span>
                         <div>
-                            <button class="btn-secondary btn-change-pass" data-id="${user.id}" data-i18n="change_password">Cambiar Contraseña</button>
-                            <button class="btn-danger btn-delete-user" data-id="${user.id}" data-i18n="delete">Borrar</button>
+                            <button class="btn-secondary btn-edit-user" data-id="${user.id}">${(translations[currentLang] && translations[currentLang]['edit']) || 'Editar'}</button>
+                            <button class="btn-secondary btn-change-pass" data-id="${user.id}">${(translations[currentLang] && translations[currentLang]['change_password']) || 'Cambiar Contraseña'}</button>
+                            <button class="btn-danger btn-delete-user" data-id="${user.id}">${(translations[currentLang] && translations[currentLang]['delete']) || 'Borrar'}</button>
                         </div>
                     `;
                     userList.appendChild(li);
                 });
-                // Re-aplicar traducciones a los botones nuevos
-                document.querySelectorAll('.btn-delete-user').forEach(btn => {
-                    if (translations[currentLang]['delete']) btn.textContent = translations[currentLang]['delete'];
-                });
-                document.querySelectorAll('.btn-change-pass').forEach(btn => {
-                    if (translations[currentLang]['change_password']) btn.textContent = translations[currentLang]['change_password'];
-                });
+            } catch (e) {
+                console.error('Error cargando usuarios:', e);
             }
         }
 
-        // Crear usuario
+        // Crear o Editar usuario
         formUser.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const id = editUserIdInput.value;
             const username = document.getElementById('new-username').value;
             const password = document.getElementById('new-password').value;
             const role = document.getElementById('new-role').value;
 
-            const response = await fetch('/api/users', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, role })
-            });
-
-            if (response.ok) {
-                alert(translations[currentLang]['alert_user_created']);
-                formUser.reset();
-                cargarUsuarios();
-            } else {
-                const errorData = await response.json();
-                let errorMsg = errorData.error;
-                // Detectar si el error es por base de datos desactualizada
-                if (errorMsg && errorMsg.includes('CHECK constraint failed')) {
-                    errorMsg += "\n\nSOLUCIÓN: La base de datos 'usuarios.db' tiene reglas antiguas. Por favor, borra ese archivo y reinicia el sistema.";
+            try {
+                if (id) {
+                    // Modo Edición (Username y Role)
+                    await API.updateUser(id, { username, role });
+                    alert(translations[currentLang]['alert_config_saved']);
+                } else {
+                    // Modo Creación
+                    if (!password) {
+                        alert(translations[currentLang]['password'] + " es obligatoria");
+                        return;
+                    }
+                    await API.createUser({ username, password, role });
+                    alert(translations[currentLang]['alert_user_created']);
                 }
-                alert(`${translations[currentLang]['alert_user_error']}: ${errorMsg}`);
+                resetUserForm();
+                cargarUsuarios();
+            } catch (err) {
+                alert(`${translations[currentLang]['alert_user_error']}: ${err.message}`);
             }
         });
 
-        // Manejar acciones de usuario (Borrar / Cambiar Contraseña)
+        function resetUserForm() {
+            formUser.reset();
+            editUserIdInput.value = '';
+            btnUserSubmit.textContent = (translations[currentLang] && translations[currentLang]['create_user']) || 'Crear Usuario';
+            btnUserSubmit.setAttribute('data-i18n', 'create_user');
+            btnUserCancel.classList.add('hidden');
+            passwordGroup.classList.remove('hidden');
+            document.getElementById('new-password').required = true;
+        }
+
+        btnUserCancel.onclick = resetUserForm;
+
+        // Manejar acciones de usuario (Borrar / Editar / Cambiar Contraseña)
         userList.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            if (!id) return;
+
             // Borrar
             if (e.target.classList.contains('btn-delete-user')) {
                 if (confirm(translations[currentLang]['confirm_delete_user'])) {
-                    const id = e.target.dataset.id;
-                    const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-                    if (response.ok) {
+                    try {
+                        await API.deleteUser(id);
                         alert(translations[currentLang]['alert_user_deleted']);
                         cargarUsuarios();
-                    } else {
-                        const err = await response.json();
-                        alert(err.error || translations[currentLang]['alert_user_error']);
+                    } catch (err) {
+                        alert(err.message || translations[currentLang]['alert_user_error']);
                     }
                 }
             }
             
+            // Editar (Cargar en formulario)
+            if (e.target.classList.contains('btn-edit-user')) {
+                const user = allUsers.find(u => u.id == id);
+                if (user) {
+                    editUserIdInput.value = user.id;
+                    document.getElementById('new-username').value = user.username;
+                    document.getElementById('new-role').value = user.role;
+
+                    btnUserSubmit.textContent = translations[currentLang]['save'];
+                    btnUserSubmit.setAttribute('data-i18n', 'save');
+                    btnUserCancel.classList.remove('hidden');
+                    passwordGroup.classList.add('hidden'); // Ocultar password en edición general
+                    document.getElementById('new-password').required = false;
+                    window.scrollTo(0, formUser.offsetTop - 20);
+                }
+            }
+
             // Cambiar Contraseña
             if (e.target.classList.contains('btn-change-pass')) {
                 const newPass = prompt(translations[currentLang]['new_password_prompt']);
                 if (newPass) {
-                    const id = e.target.dataset.id;
-                    const response = await fetch(`/api/users/${id}/password`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ password: newPass })
-                    });
-                    if (response.ok) {
+                    try {
+                        await API.updateUserPassword(id, newPass);
                         alert(translations[currentLang]['alert_password_changed']);
-                    } else {
+                    } catch (err) {
                         alert(translations[currentLang]['alert_password_error']);
                     }
                 }

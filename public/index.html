@@ -30,25 +30,25 @@
     </div>
 
     <script src="locales.js"></script>
+    <script src="sqlite-service.js"></script>
+    <script src="api-proxy.js"></script>
+    <script src="app.js"></script>
     <script>
         let currentLang = 'es';
 
         async function cargarConfiguracion() {
             try {
-                const response = await fetch('/api/config');
-                const config = await response.json();
+                const config = await API.getConfig();
                 currentLang = config.idioma || 'es';
 
-                // Aplicar traducciones
                 document.querySelectorAll('[data-i18n]').forEach(el => {
                     const key = el.getAttribute('data-i18n');
-                    if (translations[currentLang][key]) {
+                    if (translations[currentLang] && translations[currentLang][key]) {
                         el.textContent = translations[currentLang][key];
                     }
                 });
-                
+
                 if (config.nombre) {
-                    // No sobreescribir el título "Iniciar Sesión", solo el de la pestaña
                     document.title = `${config.nombre} - ${translations[currentLang]['login_title']}`;
                 }
                 if (config.logo) {
@@ -66,21 +66,34 @@
             const username = e.target.username.value;
             const password = e.target.password.value;
             const errorMessage = document.getElementById('error-message');
+            errorMessage.style.color = '#3498db';
+            errorMessage.textContent = 'Ingresando...';
 
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-
-            if (response.ok) {
-                window.location.href = '/dashboard.html';
-            } else {
-                errorMessage.textContent = translations[currentLang]['login_error'] || 'Usuario o contraseña incorrectos';
+            try {
+                console.log('Iniciando proceso de login...');
+                const user = await API.login(username, password);
+                console.log('Login exitoso, redirigiendo...', user);
+                App.user = user;
+                App.goToDashboard();
+            } catch (err) {
+                errorMessage.style.color = '#e74c3c';
+                const msg = (translations[currentLang] && translations[currentLang]['login_error']) || 'Usuario o contraseña incorrectos';
+                errorMessage.textContent = msg;
+                console.error('Error detallado de login:', err);
             }
         });
 
-        cargarConfiguracion();
+        // Inicializar app cuando esté listo
+        window.addEventListener('load', async () => {
+            console.log('Página cargada, inicializando API...');
+            try {
+                await API.init();
+                await cargarConfiguracion();
+                console.log('Configuración cargada.');
+            } catch (e) {
+                console.error('Error durante la carga inicial:', e);
+            }
+        });
     </script>
 </body>
 </html>
