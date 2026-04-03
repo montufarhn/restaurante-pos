@@ -191,6 +191,8 @@ const userDb = new sqlite3.Database(path.join(__dirname, 'usuarios.db'), (err) =
 // --- Configuración de Base de Datos (SQLite o PostgreSQL) ---
 let db;
 const isPostgres = !!DATABASE_URL;
+let userDb;
+const isPostgres = !!DATABASE_URL && process.env.SUPABASE_ENABLED === 'true';
 
 if (isPostgres) {
     // Configuración para Supabase / PostgreSQL
@@ -233,6 +235,9 @@ if (isPostgres) {
     console.log("Conectado a PostgreSQL (Supabase)");
 } else {
     // Configuración para SQLite (Local)
+    const sqlite3 = require('sqlite3').verbose();
+    
+    // Base de datos principal
     const sqliteDb = new sqlite3.Database(path.join(__dirname, 'restaurante.db'), (err) => {
         if (err) console.error(t.db_error, err.message);
         else console.log(t.db_connected);
