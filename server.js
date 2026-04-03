@@ -8,7 +8,6 @@ const { Server } = require("socket.io");
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const sqlite3 = require('sqlite3').verbose();
 const open = require('open');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
@@ -179,18 +178,8 @@ function loadConfig() {
 }
 loadConfig(); // Cargar la configuración al iniciar
 
-// --- Conexión a la Base de Datos de Usuarios ---
-const userDb = new sqlite3.Database(path.join(__dirname, 'usuarios.db'), (err) => {
-    if (err) {
-        console.error("Error al abrir la base de datos de usuarios", err.message);
-    } else {
-        console.log("Conectado a la base de datos de usuarios.");
-    }
-});
-
 // --- Configuración de Base de Datos (SQLite o PostgreSQL) ---
 let db;
-const isPostgres = !!DATABASE_URL;
 let userDb;
 const isPostgres = !!DATABASE_URL && process.env.SUPABASE_ENABLED === 'true';
 
